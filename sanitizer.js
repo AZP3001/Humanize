@@ -118,8 +118,17 @@ function computeProtectedMask(text, protectOpts) {
 
 // ---- Formatting stripper (Markdown + HTML -> plain text) -------------------
 
+const ENTITIES = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'" };
 function stripFormatting(text) {
   let s = text;
+  s = s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');                        // ANSI colour codes
+  s = s.replace(/<!--[\s\S]*?-->/g, '');                               // HTML comments
+  s = s.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');        // CSS/JS blocks
+  s = s.replace(/<br\s*\/?>|<\/(p|div|h[1-6]|li|tr)>/gi, '\n');        // block ends -> newline
+  s = s.replace(/\\textcolor\{[^{}]*\}\{([^{}]*)\}/g, '$1');           // LaTeX colour
+  s = s.replace(/\\color\{[^{}]*\}/g, '');
+  s = s.replace(/\\(?:textbf|textit|emph|underline|texttt|textsc|textrm|textsf)\{([^{}]*)\}/g, '$1');
+  s = s.replace(/^[ \t]*={3,}[ \t]*$/gm, '');                          // setext heading underline
   s = s.replace(/```[^\n]*\n([\s\S]*?)```/g, '$1');      // fenced code -> inner
   s = s.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, '$1');
   s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');          // image -> alt
@@ -135,7 +144,9 @@ function stripFormatting(text) {
   s = s.replace(/~~(.*?)~~/g, '$1');                       // strikethrough
   s = s.replace(/`([^`]+)`/g, '$1');                       // inline code
   s = s.replace(/[ \t]*\|[ \t]*/g, ' ');                   // table cell pipes (keep newlines)
-  s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');                // HTML tags
+  s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');                // HTML tags (and their inline styles)
+  s = s.replace(/&(nbsp|amp|lt|gt|quot|apos|#39);/g, (m, e) => ENTITIES[e]);
+  s = s.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n));
   s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   return s;
 }

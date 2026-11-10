@@ -135,6 +135,12 @@ async function processEntry(entry) {
   const m = metaOptions();
   const ext = FP.extOf(entry.name);
   const outName = cleanName(entry.name);
+  // "Strip all formatting" on a document means: give back its raw text only.
+  if (opts.transforms.stripFormatting && (entry.kind === 'docx' || entry.kind === 'pdf')) {
+    const raw = entry.raw != null ? entry.raw : await (entry.kind === 'docx' ? FP.docxToText(buf) : FP.pdfToText(buf));
+    return { blob: new Blob([cleanTextOf(raw, opts)], { type: 'text/plain' }),
+      outName: entry.name.replace(/\.[^.]+$/, '.clean.txt'), raw };
+  }
   if (entry.kind === 'docx') {
     // Formatting-strip is for plain text; inside a .docx only character cleanup applies.
     const inner = { ...opts, transforms: { ...opts.transforms, stripFormatting: false } };
@@ -349,7 +355,7 @@ const SETTINGS_INFO = {
     ex: 'Wait… the ﬁnal ﬂourish was ﬀine.' },
   stripFormatting: { title: 'Strip all formatting', kind: 'text',
     short: 'Flattens Markdown & HTML to plain text.',
-    long: 'Removes headings, bold/italic, links (keeping the visible text), lists, blockquotes, code fences, tables and raw HTML tags — leaving only the readable words.',
+    long: 'Removes headings, bold/italic, links (keeping the visible text), lists, blockquotes, code fences, tables, HTML tags with their colours and styles, LaTeX styling and terminal colour codes, leaving only the readable words. A dropped .docx or .pdf then downloads as a plain .txt.',
     ex: '# Title\n\n**Bold** and *italic* with a [link](https://x.com).\n\n- first item\n- second item\n\n<b>raw html</b> too.' },
 
   docxMetadata: { title: '.docx metadata wipe', kind: 'file',
