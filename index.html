@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DocScrub — Clean & Anonymize</title>
-<link rel="stylesheet" href="styles.css?v=8e39d0d">
+<link rel="stylesheet" href="styles.css?v=1794304582">
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -29,6 +29,44 @@
 </div>
 
 <main class="layout">
+  <!-- Work area -->
+  <section class="work">
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple
+        accept=".txt,.md,.json,.csv,.html,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp">
+      <span>Drop files here or <button id="browseBtn" type="button">browse</button> — batch supported</span>
+    </div>
+    <ul id="fileList" class="file-list"></ul>
+
+    <div class="editors">
+      <div class="editor">
+        <div class="ed-head">Raw Input <span id="inStats" class="stats"></span></div>
+        <textarea id="input" spellcheck="false" placeholder="Paste or type text here…"></textarea>
+      </div>
+      <div class="editor">
+        <div class="ed-head">Processed Output
+          <label class="xray-toggle"><input type="checkbox" id="xrayToggle"> X-ray diff</label>
+          <span id="outStats" class="stats"></span>
+        </div>
+        <textarea id="output" spellcheck="false" readonly placeholder="Cleaned text appears here…"></textarea>
+        <div id="xray" class="xray hidden"></div>
+      </div>
+    </div>
+
+    <div class="scoreboard">
+      <div class="gauge"><span class="g-val" id="scHidden">0</span><span class="g-lbl">Hidden chars removed</span></div>
+      <div class="gauge"><span class="g-val" id="scConf">0</span><span class="g-lbl">Confusables fixed</span></div>
+      <div class="gauge"><span class="g-val" id="scTypo">0</span><span class="g-lbl">Typography normalized</span></div>
+      <div class="gauge"><span class="g-val" id="scRisk">—</span><span class="g-lbl">Residual watermark risk</span></div>
+    </div>
+
+    <div class="export">
+      <button id="copyBtn">Copy output</button>
+      <button id="downloadBtn">Download</button>
+      <button id="zipBtn">Batch .zip</button>
+      <span id="exportMsg" class="export-msg"></span>
+    </div>
+  </section>
   <!-- Controls -->
   <aside class="controls">
 
@@ -96,44 +134,6 @@
     </section>
   </aside>
 
-  <!-- Work area -->
-  <section class="work">
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" multiple
-        accept=".txt,.md,.json,.csv,.html,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp">
-      <span>Drop files here or <button id="browseBtn" type="button">browse</button> — batch supported</span>
-    </div>
-    <ul id="fileList" class="file-list"></ul>
-
-    <div class="editors">
-      <div class="editor">
-        <div class="ed-head">Raw Input <span id="inStats" class="stats"></span></div>
-        <textarea id="input" spellcheck="false" placeholder="Paste or type text here…"></textarea>
-      </div>
-      <div class="editor">
-        <div class="ed-head">Processed Output
-          <label class="xray-toggle"><input type="checkbox" id="xrayToggle"> X-ray diff</label>
-          <span id="outStats" class="stats"></span>
-        </div>
-        <textarea id="output" spellcheck="false" readonly placeholder="Cleaned text appears here…"></textarea>
-        <div id="xray" class="xray hidden"></div>
-      </div>
-    </div>
-
-    <div class="scoreboard">
-      <div class="gauge"><span class="g-val" id="scHidden">0</span><span class="g-lbl">Hidden chars removed</span></div>
-      <div class="gauge"><span class="g-val" id="scConf">0</span><span class="g-lbl">Confusables fixed</span></div>
-      <div class="gauge"><span class="g-val" id="scTypo">0</span><span class="g-lbl">Typography normalized</span></div>
-      <div class="gauge"><span class="g-val" id="scRisk">—</span><span class="g-lbl">Residual watermark risk</span></div>
-    </div>
-
-    <div class="export">
-      <button id="copyBtn">Copy output</button>
-      <button id="downloadBtn">Download</button>
-      <button id="zipBtn">Batch .zip</button>
-      <span id="exportMsg" class="export-msg"></span>
-    </div>
-  </section>
 </main>
 
 <div class="xray-legend hidden" id="xrayLegend">
@@ -158,8 +158,8 @@
   </div>
 </div>
 
-<script src="sanitizer.js?v=8e39d0d"></script>
-<script src="file-processor.js?v=8e39d0d"></script>
-<script src="app.js?v=8e39d0d"></script>
+<script src="sanitizer.js?v=1794304582"></script>
+<script src="file-processor.js?v=1794304582"></script>
+<script src="app.js?v=1794304582"></script>
 </body>
 </html>

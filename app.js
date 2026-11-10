@@ -451,7 +451,8 @@ function initHelp() {
     b.title = 'What does this do?';
     b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openModal(id); };
     row.appendChild(b);
-    row.addEventListener('pointerenter', () => { cancelHide(); showTip(row); }); // pointer* covers mouse, pen, touch
+    // Hover tips for mouse/pen only: on touch there is no hover, so tips would stick and cover the toggles. Tap ⓘ instead.
+    row.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') { cancelHide(); showTip(row); } });
     row.addEventListener('pointerleave', hideTipSoon);
   });
   const tip = $('tooltip');
