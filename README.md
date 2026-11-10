@@ -1,4 +1,6 @@
-# DocScrub
+# [DocScrub](https://azp3001.github.io/Humanize/)
+
+> Live site: **https://azp3001.github.io/Humanize/**
 
 A 100% client-side, zero-build web app for cleaning and anonymizing documents.
 Hosts directly on GitHub Pages (no npm, no bundler).
