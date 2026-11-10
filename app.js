@@ -403,6 +403,7 @@ function showTip(row) {
   more.onclick = () => openModal(id);
   tip.appendChild(more);
   tip.classList.remove('hidden');
+  tip.style.display = '';
   const r = row.getBoundingClientRect();
   let top = r.top - tip.offsetHeight - 10;
   if (top < 8) top = r.bottom + 10;
@@ -410,7 +411,7 @@ function showTip(row) {
   tip.style.top = top + 'px';
   tip.style.setProperty('--arrow', Math.min(60, r.width / 2) + 'px');
 }
-function hideTipSoon() { tipTimer = setTimeout(() => $('tooltip').classList.add('hidden'), 180); }
+function hideTipSoon() { tipTimer = setTimeout(() => { $('tooltip').classList.add('hidden'); $('tooltip').style.display = 'none'; }, 180); }
 function cancelHide() { clearTimeout(tipTimer); }
 
 function openModal(id) {
@@ -432,9 +433,10 @@ function openModal(id) {
     run();
   }
   $('modal').classList.remove('hidden');
+  $('modal').style.display = '';
   $('tooltip').classList.add('hidden');
 }
-function closeModal() { $('modal').classList.add('hidden'); }
+function closeModal() { $('modal').classList.add('hidden'); $('modal').style.display = 'none'; }
 
 function initHelp() {
   document.querySelectorAll('.tgl').forEach((row) => {
