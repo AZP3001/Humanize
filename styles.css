@@ -72,7 +72,7 @@ textarea{border:none;background:transparent;color:var(--txt);resize:vertical;min
 .xray-toggle{display:flex;align-items:center;gap:5px;text-transform:none;letter-spacing:0;color:var(--dim);cursor:pointer}
 .xray{padding:12px;min-height:300px;white-space:pre-wrap;word-break:break-word;
   font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.55;overflow:auto}
-.hidden{display:none}
+.hidden{display:none !important}
 .x-hidden{background:var(--hidden);color:#fff;border-radius:3px;padding:0 3px;font-size:.8em;vertical-align:middle}
 .x-typo{background:rgba(240,182,75,.28);border-bottom:2px solid var(--typo);border-radius:2px}
 .x-conf{background:rgba(176,107,255,.25);border-bottom:2px solid var(--conf);border-radius:2px}

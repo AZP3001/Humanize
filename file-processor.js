@@ -67,6 +67,19 @@ function stripRsidAttrs(xml) {
     .replace(/<w:rsids\b[^>]*\/>/g, '');
 }
 
+function xmlEscape(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Run textFn over the visible text of every <w:t> node (hidden chars live there).
+function cleanDocXmlText(xml, textFn) {
+  return xml.replace(/(<w:t(?:\s[^>]*)?>)([^<]*)(<\/w:t>)/g, (m, open, body, close) => {
+    const out = textFn(xmlUnescape(body));
+    if (/^\s|\s$/.test(out) && !open.includes('xml:space')) open = '<w:t xml:space="preserve">';
+    return open + xmlEscape(out) + close;
+  });
+}
+
 // Clear identifying fields in docProps/core.xml (leave tags, blank the text).
 function wipeCoreXml(xml) {
   const blank = [
@@ -90,7 +103,7 @@ function wipeAppXml(xml) {
   return out;
 }
 
-// opts: { metadata: bool, rsid: bool }
+// opts: { metadata: bool, rsid: bool, textFn?: (string) => string }
 async function cleanDocx(arrayBuffer, opts) {
   const zip = await JSZip.loadAsync(arrayBuffer);
   const changes = [];
@@ -136,6 +149,13 @@ async function cleanDocx(arrayBuffer, opts) {
     }
   }
 
+  if (opts.textFn) {
+    for (const f of zip.file(/^word\/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$/)) {
+      zip.file(f.name, cleanDocXmlText(await f.async('string'), opts.textFn));
+    }
+    changes.push('text cleaned');
+  }
+
   const blob = await zip.generateAsync({
     type: 'blob',
     mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -171,9 +191,9 @@ async function cleanPdf(arrayBuffer) {
   // Remove the XMP metadata stream from the catalog if present.
   try {
     const catalog = pdf.catalog;
-    if (catalog.has(window.PDFLib.PDFName.of('Metadata'))) {
-      catalog.delete(window.PDFLib.PDFName.of('Metadata'));
-      changes.push('XMP stream');
+    for (const key of ['Metadata', 'PieceInfo']) {
+      const name = window.PDFLib.PDFName.of(key);
+      if (catalog.has(name)) { catalog.delete(name); changes.push(key); }
     }
   } catch (e) { /* ignore */ }
   const bytes = await pdf.save({ useObjectStreams: false });
@@ -207,5 +227,5 @@ function cleanImage(arrayBuffer, mime, ext) {
 
 window.FileProcessor = {
   extOf, kindOf, readAsText, readAsArrayBuffer,
-  docxToText, pdfToText, cleanDocx, cleanPdf, cleanImage,
+  docxToText, pdfToText, cleanDocx, cleanPdf, cleanImage, cleanDocXmlText,
 };

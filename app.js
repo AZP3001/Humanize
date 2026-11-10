@@ -132,26 +132,28 @@ const CATEGORY = {
 async function processEntry(entry) {
   const buf = await FP.readAsArrayBuffer(entry.file);
   const opts = readOptions();
+  const m = metaOptions();
   const ext = FP.extOf(entry.name);
+  const outName = cleanName(entry.name);
   if (entry.kind === 'docx') {
-    const { blob } = await FP.cleanDocx(buf, metaOptions());
-    const text = await FP.docxToText(buf);
-    return { blob, outName: cleanName(entry.name), editorText: cleanTextOf(text, opts) };
+    // Formatting-strip is for plain text; inside a .docx only character cleanup applies.
+    const inner = { ...opts, transforms: { ...opts.transforms, stripFormatting: false } };
+    const { blob } = await FP.cleanDocx(buf, { metadata: m.docxMetadata, rsid: m.docxRsid,
+      textFn: (t) => SAN.sanitizeText(t, inner).output });
+    return { blob, outName, raw: entry.raw != null ? entry.raw : await FP.docxToText(buf) };
   }
   if (entry.kind === 'pdf') {
-    const { blob } = metaOptions().pdfMeta ? await FP.cleanPdf(buf) : { blob: new Blob([buf], { type: 'application/pdf' }) };
-    const text = await FP.pdfToText(buf);
-    return { blob, outName: cleanName(entry.name), editorText: cleanTextOf(text, opts) };
+    const blob = m.pdfMeta ? (await FP.cleanPdf(buf)).blob : new Blob([buf], { type: 'application/pdf' });
+    return { blob, outName, raw: entry.raw != null ? entry.raw : await FP.pdfToText(buf) };
   }
   if (entry.kind === 'image') {
-    if (!metaOptions().imageMeta) return { blob: new Blob([buf]), outName: entry.name };
+    if (!m.imageMeta) return { blob: new Blob([buf], { type: entry.file.type }), outName: entry.name };
     const { blob } = await FP.cleanImage(buf, entry.file.type, ext === 'jpeg' ? 'jpg' : ext);
-    return { blob, outName: cleanName(entry.name) };
+    return { blob, outName };
   }
-  // text
-  const raw = await FP.readAsText(entry.file);
-  const cleaned = cleanTextOf(raw, opts);
-  return { blob: new Blob([cleaned], { type: 'text/plain' }), outName: cleanName(entry.name), editorText: cleaned, editorRaw: raw };
+  // ignoreBOM keeps a leading BOM visible so it is counted and stripped like any hidden char.
+  const raw = new TextDecoder('utf-8', { ignoreBOM: true }).decode(buf);
+  return { blob: new Blob([cleanTextOf(raw, opts)], { type: 'text/plain' }), outName, raw };
 }
 
 function cleanTextOf(text, opts) {
@@ -161,37 +163,23 @@ function cleanName(name) {
   return name.replace(/(\.[^.]+)$/, '.clean$1');
 }
 
+async function runEntry(entry) {
+  try { Object.assign(entry, await processEntry(entry), { status: 'done' }); }
+  catch (e) { entry.status = 'error'; entry.error = e.message || String(e); }
+}
+
 async function handleFiles(files) {
   const arr = Array.from(files);
   for (const file of arr) {
     const entry = { file, kind: FP.kindOf(file.name), name: file.name, status: 'processing', blob: null, outName: null };
     fileEntries.push(entry);
     renderFileList();
-    try {
-      const res = await processEntry(entry);
-      entry.blob = res.blob; entry.outName = res.outName; entry.status = 'done';
-      // If this is the only file and it carries text, load it into the editor.
-      if (arr.length === 1 && res.editorRaw != null) $('input').value = res.editorRaw;
-      else if (arr.length === 1 && res.editorText != null) $('input').value = sourceTextFor(entry);
-      if (arr.length === 1 && (entry.kind === 'docx' || entry.kind === 'pdf')) {
-        $('input').value = await rawTextFor(entry);
-      }
-      processLive();
-    } catch (e) {
-      entry.status = 'error'; entry.error = e.message || String(e);
-    }
+    await runEntry(entry);
+    // A single dropped document also loads into the editor for preview.
+    if (arr.length === 1 && entry.raw != null) { $('input').value = entry.raw; processLive(); }
     renderFileList();
   }
 }
-
-// Re-extract raw (uncleaned) text so the editor shows the before-state.
-async function rawTextFor(entry) {
-  const buf = await FP.readAsArrayBuffer(entry.file);
-  if (entry.kind === 'docx') return FP.docxToText(buf);
-  if (entry.kind === 'pdf') return FP.pdfToText(buf);
-  return '';
-}
-function sourceTextFor() { return $('input').value; }
 
 function renderFileList() {
   const ul = $('fileList');
@@ -259,16 +247,31 @@ async function batchZip() {
 
 // ---- Re-process files when toggles change ----------------------------------
 
+const PERSIST = () => [...ALL_TOGGLES, ...Object.keys(PROTECT_MAP)];
+function saveSettings() {
+  try {
+    const st = { dashReplacement: $('dashReplacement').value, keywordInput: $('keywordInput').value };
+    for (const id of PERSIST()) st[id] = $(id).checked;
+    localStorage.setItem('docscrub', JSON.stringify(st));
+  } catch (e) { /* storage unavailable: settings just don't persist */ }
+}
+function loadSettings() {
+  try {
+    const st = JSON.parse(localStorage.getItem('docscrub') || 'null');
+    if (!st) return;
+    for (const id of PERSIST()) if (typeof st[id] === 'boolean') $(id).checked = st[id];
+    if (typeof st.dashReplacement === 'string') $('dashReplacement').value = st.dashReplacement;
+    if (typeof st.keywordInput === 'string') $('keywordInput').value = st.keywordInput;
+  } catch (e) { /* ignore corrupt or blocked storage */ }
+}
+
 let reprocessTimer = null;
 function scheduleReprocess() {
+  saveSettings();
   processLive();
   clearTimeout(reprocessTimer);
   reprocessTimer = setTimeout(async () => {
-    for (const e of fileEntries) {
-      if (e.kind === 'text') continue; // text handled live; binaries re-clean
-      try { const res = await processEntry(e); e.blob = res.blob; e.outName = res.outName; e.status = 'done'; }
-      catch (err) { e.status = 'error'; e.error = err.message; }
-    }
+    for (const e of fileEntries.slice()) await runEntry(e);
     renderFileList();
   }, 400);
 }
@@ -318,8 +321,8 @@ const SETTINGS_INFO = {
     ex: 'secret󠁴󠁡󠁧 message' },
   homoglyph: { title: 'Homoglyph / confusable normalizer', kind: 'text',
     short: 'Turns look-alike letters into plain ASCII.',
-    long: 'Cyrillic and Greek letters that look identical to Latin ones (е, а, о, р, с) can be used to disguise text. This maps common confusables back to normal ASCII letters.',
-    ex: 'Соме ѕустем text' },
+    long: 'Cyrillic and Greek letters that look identical to Latin ones (е, а, о, р, с) can be used to disguise text. This maps them back to ASCII when the word is mixed with Latin letters or made only of lookalikes; genuine Cyrillic/Greek words are left alone.',
+    ex: 'PаyPаl аnd Gооgle lоgin (привет stays)' },
   homoglyphNFKC: { title: 'NFKC compatibility pass', kind: 'nfkc',
     short: 'Extra Unicode normalization, ASCII-safe only.',
     long: 'Applies Unicode NFKC normalization per character but keeps the result only when it becomes plain ASCII — catching fullwidth and other decorative variants without touching real non-Latin text.',
@@ -334,11 +337,11 @@ const SETTINGS_INFO = {
     ex: '“Hello,” it’s a 6′ «test»' },
   dashes: { title: 'Em / en-dash normalizer', kind: 'text',
     short: 'Replaces — and – with your chosen form.',
-    long: 'Em-dashes (—) and en-dashes (–) are replaced with the alternative you pick in the dropdown (spaced hyphen, comma, plain hyphen, or blank).',
+    long: 'Em-dashes (—) and en-dashes (–) are replaced with the alternative you pick in the dropdown (spaced hyphen, comma, or plain hyphen).',
     ex: 'This — right here — and pages 10–12.' },
   dashReplacement: { title: 'Dash replacement choice', kind: 'text', runAs: 'dashes',
     short: 'Pick what — and – turn into.',
-    long: 'Controls the replacement used by the em/en-dash rule: a spaced hyphen " - ", a comma ", ", a plain hyphen "-", or blank. Change the dropdown, then re-open this to see it applied.',
+    long: 'Controls the replacement used by the em/en-dash rule: a spaced hyphen " - ", a comma ", ", or a plain hyphen "-". Number ranges like 10–12 always become 10-12. Change the dropdown, then re-open this to see it applied.',
     ex: 'This — right here — stays readable.' },
   ellipsisLigature: { title: 'Ellipsis & ligature splitter', kind: 'text',
     short: 'Expands … to ... and splits ﬁ ﬂ ligatures.',
@@ -445,12 +448,12 @@ function initHelp() {
     b.title = 'What does this do?';
     b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openModal(id); };
     row.appendChild(b);
-    row.addEventListener('mouseenter', () => { cancelHide(); showTip(row); });
-    row.addEventListener('mouseleave', hideTipSoon);
+    row.addEventListener('pointerenter', () => { cancelHide(); showTip(row); }); // pointer* covers mouse, pen, touch
+    row.addEventListener('pointerleave', hideTipSoon);
   });
   const tip = $('tooltip');
-  tip.addEventListener('mouseenter', cancelHide);
-  tip.addEventListener('mouseleave', hideTipSoon);
+  tip.addEventListener('pointerenter', cancelHide);
+  tip.addEventListener('pointerleave', hideTipSoon);
   $('modalClose').addEventListener('click', closeModal);
   $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
@@ -461,8 +464,8 @@ function initHelp() {
 function init() {
   $('input').addEventListener('input', processLive);
   for (const id of [...ALL_TOGGLES, 'dashReplacement']) $(id).addEventListener('change', scheduleReprocess);
-  for (const id of Object.keys(PROTECT_MAP)) $(id).addEventListener('change', processLive);
-  $('keywordInput').addEventListener('input', processLive);
+  for (const id of Object.keys(PROTECT_MAP)) $(id).addEventListener('change', scheduleReprocess);
+  $('keywordInput').addEventListener('input', scheduleReprocess);
   $('xrayToggle').addEventListener('change', toggleXray);
 
   $('presetSelect').addEventListener('change', (e) => applyPreset(e.target.value));
@@ -487,6 +490,7 @@ function init() {
   $('downloadBtn').addEventListener('click', downloadOutput);
   $('zipBtn').addEventListener('click', batchZip);
 
+  loadSettings();
   initHelp();
   processLive();
 }

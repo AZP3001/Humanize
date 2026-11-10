@@ -60,8 +60,26 @@ const CONFUSABLES = {
   0x0420: 'P', 0x0421: 'C', 0x0422: 'T', 0x0425: 'X', 0x0456: 'i', 0x0458: 'j', 0x0405: 'S',
   0x0391: 'A', 0x0392: 'B', 0x0395: 'E', 0x0396: 'Z', 0x0397: 'H', 0x0399: 'I', 0x039a: 'K',
   0x039c: 'M', 0x039d: 'N', 0x039f: 'O', 0x03a1: 'P', 0x03a4: 'T', 0x03a5: 'Y', 0x03a7: 'X',
-  0x03bf: 'o', 0x03b1: 'a', 0x0192: 'f', 0x2212: '-', 0x2215: '/', 0x2044: '/',
+  0x0455: 's', 0x0501: 'd', 0x04bb: 'h', 0x03bf: 'o', 0x03b1: 'a', 0x0192: 'f', 0x2212: '-', 0x2215: '/', 0x2044: '/',
 };
+
+// Only convert a lookalike when its word is mixed with Latin letters or is made
+// entirely of lookalikes; genuine Cyrillic/Greek words are left alone.
+// shortcut: a real word spelled only with lookalike letters (rare) still converts; add a language toggle if that bites.
+const WORD_CH = /[\p{L}\p{M}]/u;
+function confusableWordOk(text, i) {
+  let s = i, e = i;
+  while (s > 0 && WORD_CH.test(text[s - 1])) s--;
+  while (e < text.length && WORD_CH.test(text[e])) e++;
+  const w = text.slice(s, e);
+  if (/[A-Za-z]/.test(w)) return true;
+  for (const c of w) if (CONFUSABLES[c.codePointAt(0)] == null) return false;
+  return true;
+}
+function nfkcAscii(ch) {
+  const n = ch.normalize('NFKC');
+  return n !== ch && /^[\x20-\x7e]+$/.test(n) ? n : null;
+}
 
 // ---- Term Lock (protected spans) ------------------------------------------
 
@@ -108,14 +126,15 @@ function stripFormatting(text) {
   s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');           // link -> text
   s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');                // headings
   s = s.replace(/^\s{0,3}>\s?/gm, '');                     // blockquotes
-  s = s.replace(/^\s*\|?[-:\s|]+\|[-:\s|]*$/gm, '');       // table separator rows
+  s = s.replace(/^[ \t]*\|?[-: \t|]+\|[-: \t|]*$/gm, '');    // table separator rows
   s = s.replace(/^\s{0,3}([-*+]|\d+[.)])\s+/gm, '');       // list markers
   s = s.replace(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/gm, ''); // horizontal rules
   s = s.replace(/(\*\*|__)(.*?)\1/g, '$2');                // bold
-  s = s.replace(/(\*|_)(.*?)\1/g, '$2');                   // italic
+  s = s.replace(/\*(?=\S)(.+?)(?<=\S)\*/g, '$1');            // italic *x* (not "2 * 3")
+  s = s.replace(/(?<![A-Za-z0-9])_(?=\S)(.+?)(?<=\S)_(?![A-Za-z0-9])/g, '$1'); // _x_ (not snake_case)
   s = s.replace(/~~(.*?)~~/g, '$1');                       // strikethrough
   s = s.replace(/`([^`]+)`/g, '$1');                       // inline code
-  s = s.replace(/\s*\|\s*/g, ' ');                         // table cell pipes
+  s = s.replace(/[ \t]*\|[ \t]*/g, ' ');                   // table cell pipes (keep newlines)
   s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');                // HTML tags
   s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   return s;
@@ -155,22 +174,33 @@ function sanitizeText(text, opts) {
 
     if (mask[i]) { pushUnchanged(ch); i += charLen; continue; }
 
+    let nf;
     let repl = null;   // replacement string
     let type = null;   // diff category
 
     if (t.zeroWidth && ZERO_WIDTH.has(cp)) { repl = ''; type = 'hidden'; }
     else if (t.bidiControl && isBidiOrControl(cp)) { repl = ''; type = 'hidden'; }
     else if (t.variationTags && isVariationOrTag(cp)) { repl = ''; type = 'hidden'; }
-    else if (t.homoglyph && CONFUSABLES[cp] != null) { repl = CONFUSABLES[cp]; type = 'confusable'; }
-    else if (t.homoglyph && opts.homoglyphNFKC) {
-      const n = ch.normalize('NFKC');
-      if (n !== ch && /^[\x20-\x7e]*$/.test(n)) { repl = n; type = 'confusable'; }
-    }
+    else if (t.homoglyph && CONFUSABLES[cp] != null && confusableWordOk(text, i)) { repl = CONFUSABLES[cp]; type = 'confusable'; }
     else if (t.whitespace && isExoticSpace(cp)) { repl = ' '; type = 'typography'; }
     else if (t.smartQuotes && SMART_QUOTES[cp] != null) { repl = SMART_QUOTES[cp]; type = 'typography'; }
-    else if (t.dashes && (cp === 0x2014 || cp === 0x2013)) { repl = dashRepl; type = 'typography'; }
+    else if (t.dashes && (cp === 0x2014 || cp === 0x2013)) {
+      type = 'typography';
+      if (cp === 0x2013 && /\d/.test(text[i - 1] || '') && /\d/.test(text[i + 1] || '')) repl = '-'; // 10–12
+      else {
+        repl = dashRepl;
+        // Don't double up spaces already around the dash.
+        if (repl[0] === ' ' && out.endsWith(' ')) repl = repl.slice(1);
+        else if (repl === ', ' && out.endsWith(' ')) {
+          const last = segments[segments.length - 1];
+          if (last && last.type === null) { last.text = last.text.slice(0, -1); out = out.slice(0, -1); }
+        }
+        if (repl.endsWith(' ') && text[i + 1] === ' ') repl = repl.slice(0, -1);
+      }
+    }
     else if (t.ellipsisLigature && cp === 0x2026) { repl = '...'; type = 'typography'; }
     else if (t.ellipsisLigature && LIGATURES[cp] != null) { repl = LIGATURES[cp]; type = 'typography'; }
+    else if (t.homoglyph && opts.homoglyphNFKC && (nf = nfkcAscii(ch)) !== null) { repl = nf; type = 'confusable'; }
 
     if (repl === null) { pushUnchanged(ch); }
     else {
@@ -181,10 +211,6 @@ function sanitizeText(text, opts) {
     }
     i += charLen;
   }
-
-  // Collapse doubled spaces created when a space-flanked dash becomes " - ".
-  // Only touches runs of 2+ spaces next to a hyphen, so "word-internal" stays.
-  if (t.dashes && dashRepl === ' - ') out = out.replace(/ {2,}-/g, ' -').replace(/- {2,}/g, '- ');
 
   return { output: out, segments, counts };
 }
