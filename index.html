@@ -1,165 +1,2841 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DocScrub — Clean & Anonymize</title>
-<link rel="stylesheet" href="styles.css?v=1794304582">
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-</head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NULLMARK // Client-Side AI Watermark Sanitizer & Stylometric Entropy Suite</title>
+  <!-- CDN Libraries for Zero-Build GitHub Pages Compatibility -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --bg-base: #090b10;
+      --bg-panel: #11151f;
+      --bg-card: #161b28;
+      --bg-input: #0c0f17;
+      --border: #232b3e;
+      --border-hover: #36425e;
+      --text-main: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --cyan: #06b6d4;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Header */
+    header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand-badge {
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 0.8rem;
+      padding: 0.3rem 0.55rem;
+      border-radius: 6px;
+      letter-spacing: 0.06em;
+    }
+    .brand h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand span {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-family: var(--font-mono);
+    }
+
+    .toolbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn, .btn {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 0.42rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .preset-btn:hover, .btn:hover {
+      border-color: var(--accent);
+      background: #1c2334;
+    }
+    .preset-btn.active {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: var(--accent);
+      color: #60a5fa;
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    .btn-success {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: var(--green);
+      color: #34d399;
+    }
+    .btn-success:hover {
+      background: rgba(16, 185, 129, 0.28);
+    }
+
+    .seed-box {
+      display: flex;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.2rem 0.5rem;
+      gap: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+    .seed-box input {
+      background: transparent;
+      border: none;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      width: 72px;
+      font-size: 0.75rem;
+      outline: none;
+    }
+
+    /* Main Grid Layout */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      flex: 1;
+      min-height: calc(100vh - 57px);
+    }
+    @media (max-width: 1100px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left Sidebar: All Toggleable Modules */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      max-height: calc(100vh - 57px);
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    @media (max-width: 1100px) {
+      .sidebar {
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    .module-group {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .module-header {
+      padding: 0.65rem 0.8rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #93c5fd;
+    }
+    .module-header-actions {
+      display: flex;
+      gap: 0.35rem;
+    }
+    .mini-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.66rem;
+      padding: 0.12rem 0.4rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .mini-btn:hover {
+      color: var(--text-main);
+      border-color: var(--border-hover);
+    }
+
+    .module-body {
+      padding: 0.65rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .toggle-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.28rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+    }
+    .toggle-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .toggle-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .toggle-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+    }
+    .toggle-desc {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .badge-count {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.08rem 0.38rem;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    /* Switch Styling */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #262f45;
+      transition: 0.2s;
+      border-radius: 18px;
+    }
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #9ca3af;
+      transition: 0.2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider-toggle {
+      background-color: var(--accent);
+    }
+    input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+      background-color: #fff;
+    }
+
+    /* Range Slider Styling */
+    .range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.15rem;
+    }
+    .range-wrap input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      height: 4px;
+      cursor: pointer;
+    }
+    .range-val {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--cyan);
+      min-width: 42px;
+      text-align: right;
+    }
+    .select-inline, .input-inline {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 0.73rem;
+      padding: 0.28rem 0.45rem;
+      border-radius: 4px;
+      width: 100%;
+      margin-top: 0.2rem;
+      font-family: var(--font-mono);
+    }
+
+    /* Right Workspace */
+    .workspace {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 57px);
+    }
+    @media (max-width: 1100px) {
+      .workspace {
+        max-height: none;
+      }
+    }
+
+    /* Telemetry Scoreboard */
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+    }
+    @media (max-width: 850px) {
+      .scoreboard {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 0.35rem;
+    }
+    .metric-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+    .metric-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .progress-bar {
+      width: 100%;
+      height: 5px;
+      background: #0c0f17;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 0.2rem;
+    }
+    .progress-fill {
+      height: 100%;
+      transition: width 0.25s ease, background-color 0.25s ease;
+    }
+
+    /* File Dropzone */
+    .dropzone {
+      background: rgba(59, 130, 246, 0.04);
+      border: 1.5px dashed var(--border-hover);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.1);
+    }
+    .dropzone-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .dropzone-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .file-queue {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .file-pill {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .file-pill button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    /* Dual Editor Panes */
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+      flex: 1;
+      min-height: 380px;
+    }
+    @media (max-width: 900px) {
+      .editor-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .pane {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .pane-header {
+      padding: 0.55rem 0.85rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .pane-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .pane-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    textarea.code-area, .xray-view {
+      width: 100%;
+      flex: 1;
+      min-height: 330px;
+      background: var(--bg-input);
+      color: var(--text-main);
+      border: none;
+      padding: 0.9rem;
+      font-family: var(--font-mono);
+      font-size: 0.83rem;
+      line-height: 1.65;
+      resize: vertical;
+      outline: none;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* X-Ray Highlight Pills */
+    .hl-zw {
+      background: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      padding: 0.05rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+    }
+    .hl-norm {
+      background: rgba(245, 158, 11, 0.22);
+      color: #fcd34d;
+      border-bottom: 1px solid var(--amber);
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .hl-stylo {
+      background: rgba(168, 85, 247, 0.22);
+      color: #d8b4fe;
+      border-bottom: 1px solid var(--purple);
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .hl-jitter {
+      background: rgba(6, 182, 212, 0.22);
+      color: #67e8f9;
+      border-bottom: 1px solid var(--cyan);
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    /* Audit Log Footer Panel */
+    .audit-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 0.9rem;
+    }
+    .audit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .audit-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      max-height: 110px;
+      overflow-y: auto;
+    }
+    .audit-tag {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+  </style>
+<style>
+/* Integrated DocScrub privacy module — styled to match NULLMARK */
+#privacy-suite{max-width:1500px;margin:0 auto 2rem;padding:0 1.25rem 2rem;width:100%}
+#privacy-suite .ps-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-top:1rem}
+#privacy-suite h2,#privacy-suite h3{color:var(--text-main);margin:0 0 .65rem}
+#privacy-suite p,#privacy-suite small{color:var(--text-muted)}
+#privacy-suite .ps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.65rem}
+#privacy-suite label{display:flex;align-items:center;gap:.5rem;color:var(--text-main);font-size:.82rem;padding:.22rem 0}
+#privacy-suite input[type=checkbox]{accent-color:var(--accent)}
+#privacy-suite textarea{width:100%;min-height:150px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-main);padding:.75rem;font:13px/1.5 ui-monospace,monospace}
+#privacy-suite input[type=text],#privacy-suite select{background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text-main);padding:.5rem;width:100%}
+#privacy-suite button{background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;color:var(--text-main);padding:.5rem .8rem;cursor:pointer;margin:.25rem}
+#privacy-suite button.primary{background:var(--accent);border-color:var(--accent);color:white}
+#privacy-suite .ps-stats{display:flex;flex-wrap:wrap;gap:.6rem;margin:.6rem 0}
+#privacy-suite .ps-stat{background:var(--bg-panel);border:1px solid var(--border);border-radius:6px;padding:.5rem .7rem;font-size:.8rem;color:var(--text-muted)}
+#privacy-suite .ps-stat b{color:var(--green);font-size:1.1rem;margin-right:.3rem}
+#privacy-suite .ps-file{display:flex;justify-content:space-between;gap:.5rem;align-items:center;border-bottom:1px solid var(--border);padding:.5rem 0;color:var(--text-main);font-size:.8rem}
+#privacy-suite .ps-xray{white-space:pre-wrap;word-break:break-word;font:13px/1.6 ui-monospace,monospace;max-height:260px;overflow:auto}
+#privacy-suite .ps-xray .x-hidden{background:#ef4444;color:#111;padding:0 2px}
+#privacy-suite .ps-xray .x-typo{border-bottom:2px solid #f59e0b}
+#privacy-suite .ps-xray .x-conf{border-bottom:2px solid #a855f7}
+@media(max-width:760px){#privacy-suite{padding:0 .75rem 1rem}}
+</style></head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="logo">◈</span> DocScrub<span class="sub">hidden-data &amp; metadata cleaner</span></div>
-  <div class="presets">
-    <label>Preset</label>
-    <select id="presetSelect">
-      <option value="safeClean">Safe Clean</option>
-      <option value="watermarkOnly">Watermark Strip Only</option>
-      <option value="fullNormalize">Full Normalize</option>
-      <option value="minimal">Minimal</option>
-    </select>
-  </div>
-</header>
 
-<div class="scope-note">
-  Cleanup &amp; anonymization only — strips hidden/watermark characters, normalizes typography, and
-  <strong>removes</strong> document metadata. It does not fabricate editing history or alter your words beyond the toggles below.
-</div>
-
-<main class="layout">
-  <!-- Work area -->
-  <section class="work">
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="fileInput" multiple
-        accept=".txt,.md,.json,.csv,.html,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp">
-      <span>Drop files here or <button id="browseBtn" type="button">browse</button> — batch supported</span>
-    </div>
-    <ul id="fileList" class="file-list"></ul>
-
-    <div class="editors">
-      <div class="editor">
-        <div class="ed-head">Raw Input <span id="inStats" class="stats"></span></div>
-        <textarea id="input" spellcheck="false" placeholder="Paste or type text here…"></textarea>
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-badge">NULLMARK v2.4</span>
+      <div>
+        <h1>AI Watermark Sanitizer & Stylometric Entropy Suite</h1>
+        <span>100% Client-Side • Zero-Build GitHub Pages Ready • All Features Individually Toggleable</span>
       </div>
-      <div class="editor">
-        <div class="ed-head">Processed Output
-          <label class="xray-toggle"><input type="checkbox" id="xrayToggle"> X-ray diff</label>
-          <span id="outStats" class="stats"></span>
+    </div>
+
+    <div class="toolbar-controls">
+      <button class="preset-btn" onclick="applyPreset('clean')">Preset: Safe Clean</button>
+      <button class="preset-btn active" id="preset-stealth" onclick="applyPreset('stealth')">Preset: Stealth Human</button>
+      <button class="preset-btn" onclick="applyPreset('academic')">Preset: Academic Natural</button>
+      <button class="preset-btn" onclick="applyPreset('max')">Preset: Max Entropy</button>
+
+      <div class="seed-box" title="Deterministic PRNG Seed for Case & Stylometric Jitter">
+        <span>SEED:</span>
+        <input type="number" id="rng-seed" value="98003" onchange="runPipeline()" />
+        <button class="mini-btn" onclick="rerollSeed()" title="Re-roll random mutations">↻ Re-Roll</button>
+      </div>
+
+      <button class="btn" onclick="loadSampleAIText()">Load AI Sample</button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="app-layout">
+
+    <!-- Sidebar: All Toggleable Modules -->
+    <aside class="sidebar">
+
+      <!-- Module 1: Term Lock Protection -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>1. Term Lock (Protected Spans)</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('lock', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('lock', false)">None</button>
+          </div>
         </div>
-        <textarea id="output" spellcheck="false" readonly placeholder="Cleaned text appears here…"></textarea>
-        <div id="xray" class="xray hidden"></div>
+        <div class="module-body" data-cat="lock">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_lock_urls">Protect URLs, Emails & Paths</label>
+              <label class="switch"><input type="checkbox" id="t_lock_urls" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Prevents case jitter or punctuation swaps inside links and file paths.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_lock_code">Protect Code & LaTeX Math</label>
+              <label class="switch"><input type="checkbox" id="t_lock_code" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Locks backtick code (`...`, ```...```) and math ($...$) blocks.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_lock_cite">Protect Citations & Bracketed Refs</label>
+              <label class="switch"><input type="checkbox" id="t_lock_cite" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Locks [1], (Smith, 2025), and formal reference markers.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_lock_custom">Protect Custom Terms</label>
+              <label class="switch"><input type="checkbox" id="t_lock_custom" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <input type="text" id="custom_locked_terms" class="input-inline" placeholder="Comma-separated: e.g. TrackML, CachyOS, Hann..." oninput="runPipeline()" />
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="scoreboard">
-      <div class="gauge"><span class="g-val" id="scHidden">0</span><span class="g-lbl">Hidden chars removed</span></div>
-      <div class="gauge"><span class="g-val" id="scConf">0</span><span class="g-lbl">Confusables fixed</span></div>
-      <div class="gauge"><span class="g-val" id="scTypo">0</span><span class="g-lbl">Typography normalized</span></div>
-      <div class="gauge"><span class="g-val" id="scRisk">—</span><span class="g-lbl">Residual watermark risk</span></div>
-    </div>
+      <!-- Module 2: Deep Unicode & Watermark Stripper -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>2. Hidden Watermarks & Unicode</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('unicode', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('unicode', false)">None</button>
+          </div>
+        </div>
+        <div class="module-body" data-cat="unicode">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_zw_strip">Zero-Width & Stego Stripper <span class="badge-count" id="c_zw">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_zw_strip" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Strips U+200B, U+200C, U+200D, U+2060, U+FEFF, U+00AD (soft hyphen), U+180E, U+034F.</div>
+          </div>
 
-    <div class="export">
-      <button id="copyBtn">Copy output</button>
-      <button id="downloadBtn">Download</button>
-      <button id="zipBtn">Batch .zip</button>
-      <span id="exportMsg" class="export-msg"></span>
-    </div>
-  </section>
-  <!-- Controls -->
-  <aside class="controls">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_bidi_strip">Bidi & Control Code Stripper <span class="badge-count" id="c_bidi">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_bidi_strip" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Removes U+200E/F, U+202A–202E, U+2066–2069 directional overrides.</div>
+          </div>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Term Lock <span class="hint">protect from changes</span></h2>
-        <div class="master"><button data-master="protect" data-on="1">All</button><button data-master="protect" data-on="0">None</button></div>
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_vs_strip">Variation & Tag Payload Stripper <span class="badge-count" id="c_vs">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_vs_strip" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Strips 400+ invisible Variation Selectors (U+FE00–FE0F, U+E0100–E01EF) & Tags (U+E0000–E007F).</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_homoglyph">Homoglyph & Confusable Normalizer <span class="badge-count" id="c_homo">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_homoglyph" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Converts Cyrillic, Greek & Math lookalikes back to clean ASCII Latin.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_ws_norm">Exotic Whitespace Normalizer <span class="badge-count" id="c_ws">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_ws_norm" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Replaces NBSP (U+00A0), narrow NBSP (U+202F), thin/hair/em spaces with ASCII 0x20.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_quotes">Smart Quote & Prime Flattener <span class="badge-count" id="c_quotes">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_quotes" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Converts curly quotes (“ ” ‘ ’ « ») to standard straight quotes (" ').</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_dashes">Em-Dash & En-Dash Scrubber <span class="badge-count" id="c_dashes">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_dashes" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Replaces AI giveaway em-dashes (—) and en-dashes (–).</div>
+            <select id="opt_dash_mode" class="select-inline" onchange="runPipeline()">
+              <option value="spaced">Spaced Hyphen ( - )</option>
+              <option value="comma">Comma + Space (, )</option>
+              <option value="hyphen">Single Hyphen (-)</option>
+              <option value="mixed">Mixed Human Variance ( - or , )</option>
+            </select>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_ligatures">Ellipsis & Ligature Splitter <span class="badge-count" id="c_lig">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_ligatures" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Expands single-char ellipsis (…) to ... and splits ﬁ, ﬂ, ﬀ, ﬃ, ﬄ.</div>
+          </div>
+        </div>
       </div>
-      <label class="tgl"><input type="checkbox" id="protectUrls" checked><span>URLs</span></label>
-      <label class="tgl"><input type="checkbox" id="protectEmails" checked><span>Email addresses</span></label>
-      <label class="tgl"><input type="checkbox" id="protectCode" checked><span>Inline code <code>`...`</code></span></label>
-      <label class="tgl"><input type="checkbox" id="protectCitations" checked><span>Citations <code>[1]</code> <code>(Smith, 2025)</code></span></label>
-      <label class="tgl"><input type="checkbox" id="protectMath" checked><span>Math formulas <code>$...$</code></span></label>
-      <label class="tgl"><input type="checkbox" id="protectKeywords"><span>Custom keywords</span></label>
-      <input type="text" id="keywordInput" class="kw" placeholder="comma,separated,terms">
-    </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Hidden &amp; Watermark Stripper</h2>
-        <div class="master"><button data-master="strip" data-on="1">All</button><button data-master="strip" data-on="0">None</button></div>
+      <!-- Module 3: Human Case Jitter & Micro-Imperfection Engine -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>3. Human Case Jitter & Imperfections</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('jitter', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('jitter', false)">None</button>
+          </div>
+        </div>
+        <div class="module-body" data-cat="jitter">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_cap_drop">Capital → Lowercase Drop <span class="badge-count" id="c_capdrop">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_cap_drop" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Randomly replaces capital letters with lowercase letters so capitalization looks humanly imperfect.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_cap_drop" min="0" max="12" step="0.2" value="2.4" oninput="syncSlider('s_cap_drop','v_cap_drop','%'); runPipeline();" />
+              <span class="range-val" id="v_cap_drop">2.4%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_protect_i">Protect Standalone Pronoun "I"</label>
+              <label class="switch"><input type="checkbox" id="t_protect_i" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Keeps standalone "I" capitalized while still dropping other capitals (uncheck for casual texting look).</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_rand_cap">Random Word Initial Capitalization <span class="badge-count" id="c_randcap">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_rand_cap" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Replaces very few first letters of lowercase words with a Capital letter mid-sentence.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_rand_cap" min="0" max="6" step="0.1" value="0.8" oninput="syncSlider('s_rand_cap','v_rand_cap','%'); runPipeline();" />
+              <span class="range-val" id="v_rand_cap">0.8%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_double_cap">Shift-Hold Double-Capital Slip <span class="badge-count" id="c_dblcap">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_double_cap" onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Occasionally produces THis / WHen at sentence starts (slow Shift release).</div>
+            <div class="range-wrap">
+              <input type="range" id="s_double_cap" min="0" max="4" step="0.1" value="0.4" oninput="syncSlider('s_double_cap','v_double_cap','%'); runPipeline();" />
+              <span class="range-val" id="v_double_cap">0.4%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_apos_drop">Casual Apostrophe Drop <span class="badge-count" id="c_apos">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_apos_drop" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Occasionally omits apostrophes in contractions (dont, cant, thats, ive).</div>
+            <div class="range-wrap">
+              <input type="range" id="s_apos_drop" min="0" max="25" step="0.5" value="4.0" oninput="syncSlider('s_apos_drop','v_apos_drop','%'); runPipeline();" />
+              <span class="range-val" id="v_apos_drop">4.0%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_typos">QWERTY Micro-Typos & Transpositions <span class="badge-count" id="c_typos">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_typos" onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Rare human letter transpositions (teh, adn, recieve) to shatter BPE token probability.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_typos" min="0" max="3" step="0.1" value="0.3" oninput="syncSlider('s_typos','v_typos','%'); runPipeline();" />
+              <span class="range-val" id="v_typos">0.3%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_oxford">Oxford & Serial Comma Dropper <span class="badge-count" id="c_oxford">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_oxford" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Removes commas before "and"/"or" in lists to break 100% LLM punctuation regularity.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_oxford" min="0" max="100" step="5" value="45" oninput="syncSlider('s_oxford','v_oxford','%'); runPipeline();" />
+              <span class="range-val" id="v_oxford">45%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_dbl_space">Post-Period Double-Space Jitter <span class="badge-count" id="c_dblsp">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_dbl_space" onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Inserts occasional double-space after periods to mimic human thumb/spacebar bounce.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_dbl_space" min="0" max="10" step="0.5" value="1.5" oninput="syncSlider('s_dbl_space','v_dblsp','%'); runPipeline();" />
+              <span class="range-val" id="v_dblsp">1.5%</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <label class="tgl"><input type="checkbox" id="zeroWidth" checked data-cat="strip"><span>Zero-width &amp; invisible chars <em>ZWSP, ZWNJ, BOM, soft-hyphen…</em></span></label>
-      <label class="tgl"><input type="checkbox" id="bidiControl" checked data-cat="strip"><span>Bidirectional &amp; control codes <em>RLO/LRO, control remnants</em></span></label>
-      <label class="tgl"><input type="checkbox" id="variationTags" checked data-cat="strip"><span>Variation selectors &amp; tag payloads <em>FE00–FE0F, E0000–E01EF</em></span></label>
-      <label class="tgl"><input type="checkbox" id="homoglyph" checked data-cat="strip"><span>Homoglyph / confusable normalizer <em>Cyrillic/Greek → ASCII</em></span></label>
-      <label class="tgl sub"><input type="checkbox" id="homoglyphNFKC"><span>+ NFKC pass (ASCII-safe only)</span></label>
-    </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Typography Normalizer</h2>
-        <div class="master"><button data-master="typo" data-on="1">All</button><button data-master="typo" data-on="0">None</button></div>
+      <!-- Module 4: Statistical Perplexity & Burstiness Engine -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>4. Stylometrics, Perplexity & Burstiness</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('stylo', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('stylo', false)">None</button>
+          </div>
+        </div>
+        <div class="module-body" data-cat="stylo">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_buzzwords">AI Buzzword & Transition Destroyer <span class="badge-count" id="c_buzz">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_buzzwords" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Swaps 130+ LLM tells (delve, tapestry, moreover, crucial, underscore, meticulous, realm) with human vocabulary.</div>
+            <div class="range-wrap">
+              <input type="range" id="s_buzzwords" min="0" max="100" step="5" value="90" oninput="syncSlider('s_buzzwords','v_buzz','%'); runPipeline();" />
+              <span class="range-val" id="v_buzz">90%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_contractions">Natural Contraction Injector <span class="badge-count" id="c_cont">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_contractions" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Converts stiff uncontracted pairs (do not → don't, it is → it's, cannot → can't).</div>
+            <div class="range-wrap">
+              <input type="range" id="s_contractions" min="0" max="100" step="5" value="75" oninput="syncSlider('s_contractions','v_cont','%'); runPipeline();" />
+              <span class="range-val" id="v_cont">75%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_burstiness">Burstiness Sentence Rhythm Modulator <span class="badge-count" id="c_burst">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_burstiness" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Splits uniform mid-length AI sentences & merges short robotic pairs to spike sentence-length standard deviation.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_hedging">Human Discourse & Aside Injector <span class="badge-count" id="c_hedge">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_hedging" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Injects subtle human conversational anchors (in practice, to be fair, practically speaking).</div>
+            <div class="range-wrap">
+              <input type="range" id="s_hedging" min="0" max="20" step="1" value="5" oninput="syncSlider('s_hedging','v_hedge','%'); runPipeline();" />
+              <span class="range-val" id="v_hedge">5%</span>
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_strip_bold_lead">Strip Bullet Bold Lead-Ins <span class="badge-count" id="c_boldlead">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_strip_bold_lead" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Removes robotic "- **Key Term:** explanation" formatting inside bullet lists.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_flatten_lists">Flatten Bullet Lists to Prose <span class="badge-count" id="c_flatlist">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_flatten_lists" onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Converts formulaic bulleted items into cohesive human paragraph sentences.</div>
+          </div>
+        </div>
       </div>
-      <label class="tgl"><input type="checkbox" id="whitespace" checked data-cat="typo"><span>Exotic whitespace → space <em>NBSP, narrow/figure/ideographic</em></span></label>
-      <label class="tgl"><input type="checkbox" id="smartQuotes" checked data-cat="typo"><span>Smart quotes &amp; primes → straight</span></label>
-      <label class="tgl"><input type="checkbox" id="dashes" checked data-cat="typo"><span>Em/en-dash normalize</span></label>
-      <label class="tgl sub" data-info="dashReplacement"><span class="opt">Replace with</span>
-        <select id="dashReplacement">
-          <option value=" - ">spaced hyphen</option>
-          <option value=", ">comma</option>
-          <option value="-">hyphen</option>
-        </select>
-      </label>
-      <label class="tgl"><input type="checkbox" id="ellipsisLigature" checked data-cat="typo"><span>Ellipsis → ... &amp; split ligatures <em>ﬁ ﬂ ﬀ</em></span></label>
-    </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Formatting</h2>
-        <div class="master"><button data-master="format" data-on="1">All</button><button data-master="format" data-on="0">None</button></div>
+      <!-- Module 5: Extra Autonomous Anti-Detection Heuristics -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>5. Advanced Anti-Detection Heuristics</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('extra', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('extra', false)">None</button>
+          </div>
+        </div>
+        <div class="module-body" data-cat="extra">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_triadic">Triadic ("Rule of 3") List Breaker <span class="badge-count" id="c_triad">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_triadic" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Disrupts the classic LLM "A, B, and C" three-adjective/noun rhythm that classifiers flag.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_participial">Participial Opener Flipper <span class="badge-count" id="c_part">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_participial" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Rewrites robotic "By leveraging X, Y can..." and "While X is Y, Z..." clause structures.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_num_jitter">Numeral / Word Representation Mix <span class="badge-count" id="c_num">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_num_jitter" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Mixes small spelled-out numbers (three ↔ 3) and percent styles (10% ↔ 10 percent).</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_parens">Appositive-to-Parenthetical Converter <span class="badge-count" id="c_paren">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_parens" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Converts rigid ", which means X," clauses into natural parenthetical thoughts (X).</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_tail_trim">Paragraph Tail-Summary Scrubber <span class="badge-count" id="c_tail">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_tail_trim" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Rewrites formulaic paragraph-ending wrap-ups ("Ultimately, this highlights how...").</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_bpe_shift">Orthographic BPE Token Perturber <span class="badge-count" id="c_bpe">0</span></label>
+              <label class="switch"><input type="checkbox" id="t_bpe_shift" checked onchange="runPipeline()"><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Swaps subtle regional/orthographic variants (toward/towards, gray/grey, among/amongst) to shift BPE token IDs off green-lists.</div>
+          </div>
+        </div>
       </div>
-      <label class="tgl"><input type="checkbox" id="stripFormatting" data-cat="format"><span>Strip all formatting → plain text <em>removes headings, bold, colours, links, lists, tables, HTML; .docx loses fonts/colours/styles</em></span></label>
-    </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>File Metadata Removal <span class="hint">docx · pdf · images</span></h2>
-        <div class="master"><button data-master="meta" data-on="1">All</button><button data-master="meta" data-on="0">None</button></div>
+      <!-- Module 6: Binary & Container Forensic Spoofer -->
+      <div class="module-group">
+        <div class="module-header">
+          <span>6. File Container Forensics (.docx/.pdf)</span>
+          <div class="module-header-actions">
+            <button class="mini-btn" onclick="toggleCategory('forensic', true)">All</button>
+            <button class="mini-btn" onclick="toggleCategory('forensic', false)">None</button>
+          </div>
+        </div>
+        <div class="module-body" data-cat="forensic">
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_docx_meta">Wipe .docx Creator & App Metadata</label>
+              <label class="switch"><input type="checkbox" id="t_docx_meta" checked><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Clears core.xml, app.xml, and custom.xml identifying tags.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_docx_spoof">Spoof Human .docx Editing Telemetry</label>
+              <label class="switch"><input type="checkbox" id="t_docx_spoof" checked><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Injects realistic TotalTime (~38 WPM), multi-revision count, and 35+ organic hex w:rsid session IDs so it never looks pasted at once.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_pdf_scrub">Scrub .pdf Info, XMP & C2PA Manifests</label>
+              <label class="switch"><input type="checkbox" id="t_pdf_scrub" checked><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Wipes Producer/Creator tags, XMP streams, and rebuilds clean PDF with sanitized text.</div>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-top">
+              <label class="toggle-label" for="t_img_scrub">Strip Image EXIF / C2PA / PNG Chunks</label>
+              <label class="switch"><input type="checkbox" id="t_img_scrub" checked><span class="slider-toggle"></span></label>
+            </div>
+            <div class="toggle-desc">Strips AI generation parameters (tEXt/iTXt/EXIF/C2PA) from PNG/JPG/WebP.</div>
+          </div>
+        </div>
       </div>
-      <label class="tgl"><input type="checkbox" id="docxMetadata" checked data-cat="meta"><span>.docx metadata wipe <em>core/app/custom props</em></span></label>
-      <label class="tgl"><input type="checkbox" id="docxRsid" checked data-cat="meta"><span>.docx revision (rsid) strip</span></label>
-      <label class="tgl"><input type="checkbox" id="pdfMeta" checked data-cat="meta"><span>.pdf metadata &amp; XMP scrub</span></label>
-      <label class="tgl"><input type="checkbox" id="imageMeta" checked data-cat="meta"><span>Image EXIF/XMP/C2PA strip <em>re-encode</em></span></label>
-    </section>
-  </aside>
 
-</main>
+    </aside>
 
-<div class="xray-legend hidden" id="xrayLegend">
-  <span><i class="pill-hidden"></i>stripped hidden char</span>
-  <span><i class="pill-typo"></i>typography</span>
-  <span><i class="pill-conf"></i>confusable→ASCII</span>
-</div>
+    <!-- Right Main Workspace -->
+    <main class="workspace">
 
-<div id="tooltip" class="tooltip hidden" style="display:none"></div>
+      <!-- Live Heuristic Scoreboard -->
+      <section class="scoreboard">
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Estimated Human Score</span>
+            <span id="score-delta" style="color: var(--green);">+0%</span>
+          </div>
+          <div class="metric-value" id="val-human-score" style="color: var(--green);">94%</div>
+          <div class="metric-sub" id="sub-human-score">Raw Input: 18% Human</div>
+          <div class="progress-bar"><div class="progress-fill" id="bar-human" style="width: 94%; background: var(--green);"></div></div>
+        </div>
 
-<div id="modal" class="modal hidden" style="display:none">
-  <div class="modal-box">
-    <button class="modal-close" id="modalClose">✕</button>
-    <h3 id="modalTitle"></h3>
-    <p id="modalDesc" class="modal-desc"></p>
-    <div id="modalDemo" class="modal-demo">
-      <div class="demo-col"><label>Example input <span class="demo-note">(edit me)</span></label><textarea id="demoInput" spellcheck="false"></textarea></div>
-      <div class="demo-arrow">→</div>
-      <div class="demo-col"><label>Result</label><textarea id="demoOutput" spellcheck="false" readonly></textarea></div>
-    </div>
-    <p id="modalStatic" class="modal-static hidden"></p>
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Burstiness (Sentence CV)</span>
+            <span>Target ≥ 0.45</span>
+          </div>
+          <div class="metric-value" id="val-burstiness" style="color: var(--cyan);">0.58</div>
+          <div class="metric-sub" id="sub-burstiness">Raw CV: 0.21 (Robotic)</div>
+          <div class="progress-bar"><div class="progress-fill" id="bar-burst" style="width: 82%; background: var(--cyan);"></div></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Lexical Perplexity Proxy</span>
+            <span>Token Entropy</span>
+          </div>
+          <div class="metric-value" id="val-perplexity" style="color: var(--purple);">High (88)</div>
+          <div class="metric-sub" id="sub-perplexity">0 AI Buzzwords Remaining</div>
+          <div class="progress-bar"><div class="progress-fill" id="bar-perp" style="width: 88%; background: var(--purple);"></div></div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">
+            <span>Hidden Watermarks & Mutations</span>
+            <span>Audit Total</span>
+          </div>
+          <div class="metric-value" id="val-mutations" style="color: var(--amber);">0</div>
+          <div class="metric-sub" id="sub-mutations">0 Watermarks | 0 Stylo/Case Edits</div>
+          <div class="progress-bar"><div class="progress-fill" id="bar-mut" style="width: 100%; background: var(--amber);"></div></div>
+        </div>
+      </section>
+
+      <!-- Multi-Format File Dropzone -->
+      <section class="dropzone" id="file-dropzone" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" multiple accept=".txt,.md,.json,.csv,.html,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="handleFiles(this.files)" />
+        <div class="dropzone-info">
+          <div class="dropzone-icon">⇅</div>
+          <div>
+            <div style="font-weight: 700; font-size: 0.85rem;">Drop files here or click to upload (.docx, .pdf, .txt, .md, .tex, .html, .json, .png, .jpg)</div>
+            <div style="font-size: 0.74rem; color: var(--text-muted);">Files are sanitized, text-humanized, and forensically scrubbed 100% locally in your browser.</div>
+          </div>
+        </div>
+        <div class="file-queue" id="file-queue" onclick="event.stopPropagation()"></div>
+      </section>
+
+      <!-- Dual Pane Editor -->
+      <section class="editor-grid">
+        <!-- Input Pane -->
+        <div class="pane">
+          <div class="pane-header">
+            <div class="pane-title">
+              <span>RAW INPUT TEXT / EXTRACTED DOCUMENT</span>
+              <span class="badge-count" id="input-stats">0 words</span>
+            </div>
+            <div class="pane-actions">
+              <button class="mini-btn" onclick="injectTestWatermarks()">+ Inject Hidden Watermarks</button>
+              <button class="mini-btn" onclick="document.getElementById('raw-input').value=''; runPipeline();">Clear</button>
+            </div>
+          </div>
+          <textarea id="raw-input" class="code-area" placeholder="Paste AI-generated text here or drop a .docx / .pdf / .txt / .md file above..." oninput="runPipeline()"></textarea>
+        </div>
+
+        <!-- Output Pane -->
+        <div class="pane">
+          <div class="pane-header">
+            <div class="pane-title">
+              <span>SANITIZED & HUMANIZED OUTPUT</span>
+              <span class="badge-count" id="output-stats">0 words</span>
+            </div>
+            <div class="pane-actions">
+              <button class="mini-btn" id="btn-xray" onclick="toggleXRay()">🔬 X-Ray Diff: OFF</button>
+              <button class="btn btn-primary" style="padding: 0.22rem 0.6rem; font-size: 0.73rem;" onclick="copyOutput()">Copy Text</button>
+              <button class="btn btn-success" style="padding: 0.22rem 0.6rem; font-size: 0.73rem;" onclick="downloadOutput('.txt')">Download .txt</button>
+              <button class="btn" style="padding: 0.22rem 0.6rem; font-size: 0.73rem;" onclick="downloadOutput('.md')">.md</button>
+            </div>
+          </div>
+          <textarea id="sanitized-output" class="code-area" readonly></textarea>
+          <div id="xray-container" class="xray-view" style="display: none;"></div>
+        </div>
+      </section>
+
+      <!-- Forensic Audit Log -->
+      <section class="audit-panel">
+        <div class="audit-header">
+          <span>Forensic Sanitization & Stylometric Audit Log</span>
+          <span id="audit-summary">Ready</span>
+        </div>
+        <div class="audit-grid" id="audit-log"></div>
+      </section>
+
+    </main>
   </div>
-</div>
 
-<script src="sanitizer.js?v=1794304582"></script>
-<script src="file-processor.js?v=1794304582"></script>
-<script src="app.js?v=1794304582"></script>
+  <script>
+    // Configure PDF.js worker if available
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // ============================================================================
+    // 1. DETERMINISTIC SEEDED PRNG (MULBERRY32)
+    // ============================================================================
+    function createPRNG(seed) {
+      let a = seed >>> 0;
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function rerollSeed() {
+      const el = document.getElementById('rng-seed');
+      el.value = Math.floor(10000 + Math.random() * 90000);
+      runPipeline();
+    }
+
+    function syncSlider(sliderId, valId, suffix) {
+      document.getElementById(valId).textContent = document.getElementById(sliderId).value + suffix;
+    }
+
+    // ============================================================================
+    // 2. LOOKUP MAPS: HOMOGLYPHS, AI BUZZWORDS, CONTRACTIONS, TYPOS
+    // ============================================================================
+    const HOMOGLYPH_MAP = {
+      '\u0430':'a','\u0435':'e','\u043E':'o','\u0440':'p','\u0441':'c','\u0443':'y','\u0445':'x',
+      '\u0456':'i','\u0458':'j','\u0455':'s','\u0410':'A','\u0412':'B','\u0415':'E','\u041A':'K',
+      '\u041C':'M','\u041D':'H','\u041E':'O','\u0420':'P','\u0421':'C','\u0422':'T','\u0425':'X',
+      '\u03B1':'a','\u03BF':'o','\u03C1':'p','\u03BD':'v','\u0391':'A','\u0392':'B','\u0395':'E',
+      '\u0397':'H','\u0399':'I','\u039A':'K','\u039C':'M','\u039D':'N','\u039F':'O','\u03A1':'P',
+      '\u03A4':'T','\u03A7':'X','\u0396':'Z'
+    };
+
+    const LIGATURE_MAP = {
+      '\u2026': '...', '\uFB00': 'ff', '\uFB01': 'fi', '\uFB02': 'fl', '\uFB03': 'ffi', '\uFB04': 'ffl'
+    };
+
+    // 120+ High-Probability AI Buzzwords & Stock Phrases -> Human Replacements
+    const AI_PHRASE_MAP = [
+      [/\bit is important to note that\b/gi, ['notably,', 'keep in mind that', 'worth noting:']],
+      [/\bit is worth noting that\b/gi, ['note that', 'interestingly,', 'in practice,']],
+      [/\bin conclusion,?\b/gi, ['ultimately,', 'to wrap up,', 'all in all,']],
+      [/\bmoreover,?\b/gi, ['on top of that,', 'also,', 'beyond that,', 'plus,']],
+      [/\bfurthermore,?\b/gi, ['what is more,', 'in addition,', 'also,']],
+      [/\badditionally,?\b/gi, ['also,', 'as well as that,', 'besides that,']],
+      [/\bconsequently,?\b/gi, ['as a result,', 'so,', 'because of this,']],
+      [/\bnevertheless,?\b/gi, ['even so,', 'still,', 'that said,']],
+      [/\bnonetheless,?\b/gi, ['still,', 'even so,', 'all the same,']],
+      [/\bin the realm of\b/gi, ['in', 'within', 'across']],
+      [/\ba testament to\b/gi, ['proof of', 'clear evidence of', 'a sign of']],
+      [/\brich tapestry of\b/gi, ['wide mix of', 'broad collection of', 'variety of']],
+      [/\btapestry of\b/gi, ['mix of', 'blend of', 'network of']],
+      [/\ba myriad of\b/gi, ['plenty of', 'many', 'countless']],
+      [/\bmyriad of\b/gi, ['many', 'several', 'a wide range of']],
+      [/\bplays a crucial role\b/gi, ['matters a lot', 'is key', 'makes a major difference']],
+      [/\bplays a pivotal role\b/gi, ['is central', 'is a key part', 'drives much of']],
+      [/\bdelves into\b/gi, ['explores', 'looks closely at', 'digs into', 'breaks down']],
+      [/\bdelve into\b/gi, ['explore', 'dig into', 'examine', 'look at']],
+      [/\bdelving into\b/gi, ['digging into', 'exploring', 'breaking down']],
+      [/\bunderscores the\b/gi, ['highlights the', 'shows the', 'points to the']],
+      [/\bunderscore the\b/gi, ['highlight the', 'show the', 'point to the']],
+      [/\bmeticulously\b/gi, ['carefully', 'thoroughly', 'closely']],
+      [/\bmeticulous\b/gi, ['careful', 'detailed', 'thorough']],
+      [/\bpivotal\b/gi, ['key', 'central', 'critical', 'major']],
+      [/\bcrucial\b/gi, ['key', 'vital', 'essential', 'important']],
+      [/\bparamount\b/gi, ['top priority', 'essential', 'most important']],
+      [/\bmultifaceted\b/gi, ['complex', 'many-sided', 'layered']],
+      [/\bcomprehensive\b/gi, ['full', 'thorough', 'complete', 'in-depth']],
+      [/\butilize\b/gi, ['use', 'work with', 'run']],
+      [/\butilizing\b/gi, ['using', 'working with', 'running']],
+      [/\butilization\b/gi, ['use', 'usage']],
+      [/\bfacilitate\b/gi, ['help', 'make easier', 'support', 'enable']],
+      [/\bfacilitates\b/gi, ['helps', 'supports', 'enables']],
+      [/\bfoster\b/gi, ['build', 'encourage', 'support', 'grow']],
+      [/\bfostering\b/gi, ['building', 'encouraging', 'supporting']],
+      [/\bembark on\b/gi, ['start', 'begin', 'set out on']],
+      [/\bbeacon of\b/gi, ['example of', 'source of', 'model of']],
+      [/\bseamless\b/gi, ['smooth', 'clean', 'direct']],
+      [/\bseamlessly\b/gi, ['smoothly', 'cleanly', 'without friction']],
+      [/\brobust\b/gi, ['strong', 'solid', 'reliable', 'sturdy']],
+      [/\bleverage\b/gi, ['use', 'apply', 'take advantage of']],
+      [/\bleveraging\b/gi, ['using', 'applying', 'relying on']],
+      [/\bnavigating the complexities of\b/gi, ['handling', 'working through', 'dealing with']],
+      [/\bever-evolving\b/gi, ['fast-changing', 'shifting', 'changing']],
+      [/\bparadigm shift\b/gi, ['major change', 'big shift', 'turning point']],
+      [/\bsynergy\b/gi, ['teamwork', 'combined effect', 'alignment']],
+      [/\bholistic\b/gi, ['complete', 'whole-system', 'overall']],
+      [/\bintricate\b/gi, ['detailed', 'complex', 'fine-grained']],
+      [/\bintricacies\b/gi, ['details', 'ins and outs', 'nuances']]
+    ];
+
+    const CONTRACTION_MAP = [
+      [/\bdo not\b/gi, "don't"],
+      [/\bdoes not\b/gi, "doesn't"],
+      [/\bdid not\b/gi, "didn't"],
+      [/\bcannot\b/gi, "can't"],
+      [/\bcan not\b/gi, "can't"],
+      [/\bcould not\b/gi, "couldn't"],
+      [/\bwould not\b/gi, "wouldn't"],
+      [/\bshould not\b/gi, "shouldn't"],
+      [/\bwill not\b/gi, "won't"],
+      [/\bis not\b/gi, "isn't"],
+      [/\bare not\b/gi, "aren't"],
+      [/\bwas not\b/gi, "wasn't"],
+      [/\bwere not\b/gi, "weren't"],
+      [/\bhas not\b/gi, "hasn't"],
+      [/\bhave not\b/gi, "haven't"],
+      [/\bit is\b/gi, "it's"],
+      [/\bthat is\b/gi, "that's"],
+      [/\bthere is\b/gi, "there's"],
+      [/\bwe are\b/gi, "we're"],
+      [/\bthey are\b/gi, "they're"],
+      [/\byou are\b/gi, "you're"],
+      [/\bI am\b/g, "I'm"],
+      [/\bI have\b/g, "I've"],
+      [/\bI will\b/g, "I'll"]
+    ];
+
+    const MICRO_TYPO_MAP = {
+      'the': 'teh', 'and': 'adn', 'that': 'taht', 'with': 'wiht', 'from': 'form',
+      'receive': 'recieve', 'separate': 'seperate', 'definitely': 'definately',
+      'occurrence': 'occurence', 'because': 'becuase', 'about': 'abuot'
+    };
+
+    const BPE_ORTHO_MAP = [
+      [/\btowards\b/g, 'toward'], [/\btoward\b/g, 'towards'],
+      [/\bamong\b/g, 'amongst'], [/\bwhile\b/g, 'whilst'],
+      [/\bgray\b/g, 'grey'], [/\bgrey\b/g, 'gray'],
+      [/\bjudgment\b/g, 'judgement'], [/\backnowledgment\b/g, 'acknowledgement']
+    ];
+
+    const DISCOURSE_HEDGES = [
+      'in practice, ', 'to be fair, ', 'practically speaking, ', 'for the most part, ',
+      'honestly, ', 'at a practical level, ', 'in reality, '
+    ];
+
+    // ============================================================================
+    // 3. STATE & PRESET PROFILES
+    // ============================================================================
+    let xrayEnabled = false;
+    let lastDiffTokens = [];
+    let uploadedFilesQueue = [];
+
+    function toggleCategory(cat, state) {
+      const container = document.querySelector(`.module-body[data-cat="${cat}"]`);
+      if (!container) return;
+      container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = state);
+      runPipeline();
+    }
+
+    function applyPreset(name) {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      if (event && event.target && event.target.classList.contains('preset-btn')) {
+        event.target.classList.add('active');
+      }
+      if (name === 'clean') {
+        toggleCategory('lock', true);
+        toggleCategory('unicode', true);
+        toggleCategory('jitter', false);
+        toggleCategory('stylo', false);
+        toggleCategory('extra', false);
+        toggleCategory('forensic', true);
+      } else if (name === 'stealth') {
+        toggleCategory('lock', true);
+        toggleCategory('unicode', true);
+        toggleCategory('jitter', true);
+        document.getElementById('t_double_cap').checked = false;
+        document.getElementById('t_typos').checked = false;
+        document.getElementById('t_dbl_space').checked = false;
+        document.getElementById('s_cap_drop').value = 2.4; syncSlider('s_cap_drop','v_cap_drop','%');
+        document.getElementById('s_rand_cap').value = 0.8; syncSlider('s_rand_cap','v_rand_cap','%');
+        toggleCategory('stylo', true);
+        document.getElementById('t_flatten_lists').checked = false;
+        toggleCategory('extra', true);
+        toggleCategory('forensic', true);
+      } else if (name === 'academic') {
+        toggleCategory('lock', true);
+        toggleCategory('unicode', true);
+        toggleCategory('jitter', false);
+        document.getElementById('t_oxford').checked = true;
+        toggleCategory('stylo', true);
+        document.getElementById('t_contractions').checked = false;
+        document.getElementById('t_hedging').checked = false;
+        document.getElementById('t_flatten_lists').checked = false;
+        toggleCategory('extra', true);
+        toggleCategory('forensic', true);
+      } else if (name === 'max') {
+        toggleCategory('lock', true);
+        toggleCategory('unicode', true);
+        toggleCategory('jitter', true);
+        document.getElementById('s_cap_drop').value = 4.5; syncSlider('s_cap_drop','v_cap_drop','%');
+        document.getElementById('s_rand_cap').value = 1.6; syncSlider('s_rand_cap','v_rand_cap','%');
+        toggleCategory('stylo', true);
+        toggleCategory('extra', true);
+        toggleCategory('forensic', true);
+      }
+      runPipeline();
+    }
+
+    function preserveCase(original, replacement) {
+      if (!original || !replacement) return replacement;
+      if (original === original.toUpperCase() && original.length > 1) return replacement.toUpperCase();
+      if (original[0] === original[0].toUpperCase()) {
+        return replacement.charAt(0).toUpperCase() + replacement.slice(1);
+      }
+      return replacement;
+    }
+
+    // ============================================================================
+    // 4. CORE SANITIZATION & STYLOMETRIC PIPELINE
+    // ============================================================================
+    function sanitizeAndHumanize(rawText, seedValue) {
+      const rand = createPRNG(seedValue);
+      const counts = {
+        zw: 0, bidi: 0, vs: 0, homo: 0, ws: 0, quotes: 0, dashes: 0, lig: 0,
+        capdrop: 0, randcap: 0, dblcap: 0, apos: 0, typos: 0, oxford: 0, dblsp: 0,
+        buzz: 0, cont: 0, burst: 0, hedge: 0, boldlead: 0, flatlist: 0,
+        triad: 0, part: 0, num: 0, paren: 0, tail: 0, bpe: 0
+      };
+      const auditEvents = [];
+      let text = rawText;
+
+      if (!text) {
+        return { output: '', xrayHtml: '', counts, auditEvents };
+      }
+
+      // Build X-Ray record of removed invisible characters before stripping
+      let xrayNotes = [];
+
+      // --- PASS 1: DEEP UNICODE & HIDDEN WATERMARK STRIPPER ---
+      if (document.getElementById('t_zw_strip').checked) {
+        text = text.replace(/[\u200B\u200C\u200D\u2060\uFEFF\u00AD\u180E\u034F\u061C]/g, (m) => {
+          counts.zw++;
+          const hex = 'U+' + m.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+          auditEvents.push(`Stripped ${hex}`);
+          return '';
+        });
+      }
+
+      if (document.getElementById('t_bidi_strip').checked) {
+        text = text.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, (m) => {
+          counts.bidi++;
+          const hex = 'U+' + m.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+          auditEvents.push(`Stripped Bidi ${hex}`);
+          return '';
+        });
+      }
+
+      if (document.getElementById('t_vs_strip').checked) {
+        // Variation selectors U+FE00-FE0F and supplementary U+E0100-E01EF + Tags U+E0000-E007F
+        text = text.replace(/[\uFE00-\uFE0F]|[\uDB40][\uDD00-\uDDEF]|[\uDB40][\uDC00-\uDC7F]/g, (m) => {
+          counts.vs++;
+          const cp = m.codePointAt(0).toString(16).toUpperCase();
+          auditEvents.push(`Stripped Tag/VS U+${cp}`);
+          return '';
+        });
+      }
+
+      if (document.getElementById('t_homoglyph').checked) {
+        let out = '';
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          if (HOMOGLYPH_MAP[ch]) {
+            counts.homo++;
+            const hex = 'U+' + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0');
+            auditEvents.push(`Homoglyph ${hex}→${HOMOGLYPH_MAP[ch]}`);
+            out += HOMOGLYPH_MAP[ch];
+          } else {
+            out += ch;
+          }
+        }
+        text = out;
+      }
+
+      if (document.getElementById('t_ws_norm').checked) {
+        text = text.replace(/[\u00A0\u202F\u2007\u3000\u2000-\u200A]/g, (m) => {
+          counts.ws++;
+          return ' ';
+        });
+      }
+
+      if (document.getElementById('t_quotes').checked) {
+        text = text.replace(/[\u201C\u201D\u00AB\u00BB\u2033]/g, () => { counts.quotes++; return '"'; });
+        text = text.replace(/[\u2018\u2019\u2039\u203A\u2032]/g, () => { counts.quotes++; return "'"; });
+      }
+
+      if (document.getElementById('t_dashes').checked) {
+        const mode = document.getElementById('opt_dash_mode').value;
+        text = text.replace(/\s*[\u2014\u2013]\s*/g, () => {
+          counts.dashes++;
+          if (mode === 'spaced') return ' - ';
+          if (mode === 'comma') return ', ';
+          if (mode === 'hyphen') return '-';
+          return rand() < 0.6 ? ' - ' : ', ';
+        });
+      }
+
+      if (document.getElementById('t_ligatures').checked) {
+        text = text.replace(/[\u2026\uFB00-\uFB04]/g, (m) => {
+          counts.lig++;
+          return LIGATURE_MAP[m] || m;
+        });
+      }
+
+      // --- PASS 2: TERM LOCK (PROTECTED SPANS) ---
+      const placeholders = [];
+      function lockSpan(match) {
+        const token = `__LOCK_${placeholders.length}__`;
+        placeholders.push(match);
+        return token;
+      }
+
+      if (document.getElementById('t_lock_code').checked) {
+        text = text.replace(/```[\s\S]*?```|`[^`\n]+`|\$\$[\s\S]*?\$\$|\$[^$\n]+\$/g, lockSpan);
+      }
+      if (document.getElementById('t_lock_urls').checked) {
+        text = text.replace(/https?:\/\/[^\s)]+|www\.[^\s)]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, lockSpan);
+      }
+      if (document.getElementById('t_lock_cite').checked) {
+        text = text.replace(/\[\d+(?:,\s*\d+)*\]|\([A-Z][a-zA-Z]+(?:\s+et\s+al\.)?,\s*\d{4}[a-z]?\)/g, lockSpan);
+      }
+      if (document.getElementById('t_lock_custom').checked) {
+        const rawCustom = document.getElementById('custom_locked_terms').value.trim();
+        if (rawCustom) {
+          const terms = rawCustom.split(',').map(s => s.trim()).filter(Boolean);
+          terms.forEach(term => {
+            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            text = text.replace(new RegExp(`\\b${escaped}\\b`, 'g'), lockSpan);
+          });
+        }
+      }
+
+      // --- PASS 3: MARKDOWN & LIST DE-ROBOTIZER ---
+      if (document.getElementById('t_strip_bold_lead').checked) {
+        text = text.replace(/^(\s*[-*+]\s+|\s*\d+\.\s+)\*\*([^*]+?)\*\*\s*[:\-–—]\s*/gm, (m, prefix, label) => {
+          counts.boldlead++;
+          return `${prefix}${label} - `;
+        });
+      }
+
+      if (document.getElementById('t_flatten_lists').checked) {
+        text = text.replace(/(?:^\s*[-*+]\s+.+\n?){2,}/gm, (block) => {
+          const items = block.trim().split(/\n/).map(l => l.replace(/^\s*[-*+]\s+/, '').trim());
+          if (items.length >= 2) {
+            counts.flatlist++;
+            return items.join(' ') + '\n\n';
+          }
+          return block;
+        });
+      }
+
+      // --- PASS 4: STYLOMETRICS, PERPLEXITY & ADVANCED HEURISTICS ---
+      if (document.getElementById('t_participial').checked) {
+        // Flip "By [gerund] X, [subject]..." -> "[Subject]... by [gerund] X"
+        text = text.replace(/(^|[.!?]\s+)By\s+([a-z]+ing\s+[^,]{4,45}),\s+([a-zA-Z][^.!?\n]{8,90})([.!?])/gm, (m, pre, gerundClause, mainClause, punct) => {
+          counts.part++;
+          const cleanMain = mainClause.charAt(0).toUpperCase() + mainClause.slice(1);
+          return `${pre}${cleanMain} by ${gerundClause}${punct}`;
+        });
+      }
+
+      if (document.getElementById('t_tail_trim').checked) {
+        text = text.replace(/\b(Ultimately|Overall|In summary|Taken together),\s+this\s+(demonstrates|highlights|underscores|illustrates|shows)\s+(how|that)\s+/gi, (m) => {
+          counts.tail++;
+          return 'This shows ';
+        });
+      }
+
+      if (document.getElementById('t_buzzwords').checked) {
+        const rate = parseFloat(document.getElementById('s_buzzwords').value) / 100;
+        for (const [regex, options] of AI_PHRASE_MAP) {
+          text = text.replace(regex, (match) => {
+            if (rand() <= rate) {
+              counts.buzz++;
+              const pick = options[Math.floor(rand() * options.length)];
+              const replaced = preserveCase(match, pick);
+              auditEvents.push(`Lexical: "${match}" → "${replaced}"`);
+              return replaced;
+            }
+            return match;
+          });
+        }
+      }
+
+      if (document.getElementById('t_contractions').checked) {
+        const rate = parseFloat(document.getElementById('s_contractions').value) / 100;
+        for (const [regex, replacement] of CONTRACTION_MAP) {
+          text = text.replace(regex, (match) => {
+            if (rand() <= rate) {
+              counts.cont++;
+              return preserveCase(match, replacement);
+            }
+            return match;
+          });
+        }
+      }
+
+      if (document.getElementById('t_triadic').checked) {
+        // Disrupts predictable "X, Y, and Z" 3-item adjective/noun chains occasionally
+        text = text.replace(/\b([a-z]{4,14}),\s+([a-z]{4,14}),?\s+and\s+([a-z]{4,14})\b/g, (m, a, b, c) => {
+          if (rand() < 0.45) {
+            counts.triad++;
+            return rand() < 0.5 ? `${a} and ${c}` : `${a}, ${b}, and ${c}, among others`;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_parens').checked) {
+        text = text.replace(/,\s+which\s+(means|is|allows|makes|ensures)\s+([^,.!?\n]{5,45}),/g, (m, verb, rest) => {
+          if (rand() < 0.5) {
+            counts.paren++;
+            return ` (which ${verb} ${rest})`;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_num_jitter').checked) {
+        const wordNums = { 'three': '3', 'four': '4', 'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10' };
+        text = text.replace(/\b(three|four|five|six|seven|eight|nine|ten)\b/gi, (m) => {
+          if (rand() < 0.4) {
+            counts.num++;
+            return wordNums[m.toLowerCase()] || m;
+          }
+          return m;
+        });
+        text = text.replace(/(\d+)%/g, (m, d) => {
+          if (rand() < 0.35) {
+            counts.num++;
+            return `${d} percent`;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_bpe_shift').checked) {
+        for (const [rx, rep] of BPE_ORTHO_MAP) {
+          text = text.replace(rx, (m) => {
+            if (rand() < 0.4) {
+              counts.bpe++;
+              return preserveCase(m, rep);
+            }
+            return m;
+          });
+        }
+      }
+
+      if (document.getElementById('t_burstiness').checked) {
+        // Split overly long balanced compound sentences at ", and " or "; "
+        text = text.replace(/([^.!?\n]{55,140}),\s+(and|but|so)\s+([a-z][^.!?\n]{35,120}[.!?])/g, (m, first, conj, second) => {
+          if (rand() < 0.55) {
+            counts.burst++;
+            const capSecond = second.charAt(0).toUpperCase() + second.slice(1);
+            const capConj = conj.charAt(0).toUpperCase() + conj.slice(1);
+            return `${first}. ${capConj === 'So' ? 'So, ' + second : capSecond}`;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_hedging').checked) {
+        const hedgeRate = parseFloat(document.getElementById('s_hedging').value) / 100;
+        text = text.replace(/([.!?]\s+)([A-Z][a-z]{3,12}\s+)/g, (m, sep, startWord) => {
+          if (rand() < hedgeRate) {
+            counts.hedge++;
+            const h = DISCOURSE_HEDGES[Math.floor(rand() * DISCOURSE_HEDGES.length)];
+            const capH = h.charAt(0).toUpperCase() + h.slice(1);
+            return `${sep}${capH}${startWord.toLowerCase()}`;
+          }
+          return m;
+        });
+      }
+
+      // --- PASS 5: HUMAN CASE JITTER & MICRO-IMPERFECTION ENGINE ---
+      if (document.getElementById('t_oxford').checked) {
+        const oxRate = parseFloat(document.getElementById('s_oxford').value) / 100;
+        text = text.replace(/,(\s+(?:and|or)\s+)/g, (m, rest) => {
+          if (rand() < oxRate) {
+            counts.oxford++;
+            return rest;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_apos_drop').checked) {
+        const aposRate = parseFloat(document.getElementById('s_apos_drop').value) / 100;
+        text = text.replace(/\b(don't|can't|won't|didn't|isn't|aren't|wasn't|weren't|that's|it's|I'm|I've)\b/gi, (m) => {
+          if (rand() < aposRate) {
+            counts.apos++;
+            return m.replace("'", "");
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_typos').checked) {
+        const typoRate = parseFloat(document.getElementById('s_typos').value) / 100;
+        text = text.replace(/\b(the|and|that|with|from|receive|separate|definitely|because|about)\b/gi, (m) => {
+          if (rand() < typoRate) {
+            const replacement = MICRO_TYPO_MAP[m.toLowerCase()];
+            if (replacement) {
+              counts.typos++;
+              return preserveCase(m, replacement);
+            }
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_double_cap').checked) {
+        const dblRate = parseFloat(document.getElementById('s_double_cap').value) / 100;
+        text = text.replace(/(^|[.!?]\s+)([A-Z])([a-z]{2,})/g, (m, pre, c1, rest) => {
+          if (rand() < dblRate) {
+            counts.dblcap++;
+            return `${pre}${c1}${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+          }
+          return m;
+        });
+      }
+
+      // Capital -> Lowercase Drop (User requested: replace some capital letters with small ones)
+      if (document.getElementById('t_cap_drop').checked) {
+        const capDropRate = parseFloat(document.getElementById('s_cap_drop').value) / 100;
+        const protectI = document.getElementById('t_protect_i').checked;
+        text = text.replace(/\b([A-Z])([a-zA-Z]*)\b/g, (m, firstCap, rest) => {
+          if (protectI && m === 'I') return m;
+          // Skip LOCK tokens
+          if (m.startsWith('__LOCK_')) return m;
+          if (rand() < capDropRate) {
+            counts.capdrop++;
+            auditEvents.push(`CaseDrop: "${m}" → "${firstCap.toLowerCase() + rest}"`);
+            return firstCap.toLowerCase() + rest;
+          }
+          return m;
+        });
+      }
+
+      // Random Word Initial Capitalization (User requested: replace very few first letters of word with big letter)
+      if (document.getElementById('t_rand_cap').checked) {
+        const randCapRate = parseFloat(document.getElementById('s_rand_cap').value) / 100;
+        text = text.replace(/(?<=[a-z,;]\s+)([a-z])([a-z]{2,})\b/g, (m, firstLow, rest) => {
+          if (rand() < randCapRate) {
+            counts.randcap++;
+            const mutated = firstLow.toUpperCase() + rest;
+            auditEvents.push(`InitialCap: "${m}" → "${mutated}"`);
+            return mutated;
+          }
+          return m;
+        });
+      }
+
+      if (document.getElementById('t_dbl_space').checked) {
+        const spRate = parseFloat(document.getElementById('s_dbl_space').value) / 100;
+        text = text.replace(/([.!?])\s+/g, (m, p) => {
+          if (m.includes('\n')) return m;
+          if (rand() < spRate) {
+            counts.dblsp++;
+            return `${p}  `;
+          }
+          return m;
+        });
+      }
+
+      // --- PASS 6: RESTORE PROTECTED SPANS ---
+      text = text.replace(/__LOCK_(\d+)__/g, (m, idx) => placeholders[Number(idx)] ?? m);
+
+      return { output: text, counts, auditEvents };
+    }
+
+    // ============================================================================
+    // 5. STATISTICAL HEURISTIC SCORER (BURSTINESS + PERPLEXITY + WATERMARK RISK)
+    // ============================================================================
+    function computeMetrics(str) {
+      if (!str || !str.trim()) {
+        return { cv: 0, perp: 50, zwCount: 0, buzzCount: 0, humanScore: 50 };
+      }
+      const sentences = str.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(s => s.length > 0);
+      const lengths = sentences.map(s => s.split(/\s+/).filter(Boolean).length);
+      let cv = 0;
+      if (lengths.length > 1) {
+        const mean = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+        const variance = lengths.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / lengths.length;
+        cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+      } else {
+        cv = 0.35;
+      }
+
+      // Count remaining AI buzzwords
+      let buzzCount = 0;
+      for (const [rx] of AI_PHRASE_MAP) {
+        const m = str.match(rx);
+        if (m) buzzCount += m.length;
+      }
+
+      // Count hidden watermarks & AI em-dashes/curly quotes
+      const zwMatches = str.match(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\u00AD\u180E\uFE00-\uFE0F]/g) || [];
+      const aiPunct = str.match(/[\u2014\u2013\u201C\u201D\u2018\u2019]/g) || [];
+      const zwCount = zwMatches.length + aiPunct.length;
+
+      // Type-Token Ratio proxy
+      const words = str.toLowerCase().match(/\b[a-z']+\b/g) || [];
+      const unique = new Set(words).size;
+      const ttr = words.length > 0 ? unique / Math.sqrt(words.length) : 1;
+
+      // Check subtle human imperfections (contractions, dropped caps, mid-sentence caps)
+      const contractions = (str.match(/\b[a-z]+'[a-z]+\b/gi) || []).length;
+      const lowercaseStarts = (str.match(/(?:^|[.!?]\s+)[a-z]/g) || []).length;
+
+      let perp = Math.min(99, Math.max(12, Math.round(45 + ttr * 8 - buzzCount * 7 + contractions * 2)));
+      let humanScore = Math.round(
+        Math.min(35, cv * 62) +
+        (perp * 0.45) -
+        (zwCount * 6) -
+        (buzzCount * 5) +
+        Math.min(18, (contractions + lowercaseStarts) * 2.5)
+      );
+      humanScore = Math.max(4, Math.min(99, humanScore));
+
+      return { cv, perp, zwCount, buzzCount, humanScore };
+    }
+
+    // ============================================================================
+    // 6. X-RAY VISUAL DIFF RENDERER
+    // ============================================================================
+    function buildXRayHtml(rawText, sanitizedText) {
+      if (!rawText) return '<span style="color:var(--text-muted)">No input text to inspect.</span>';
+      // Step 1: Show where invisible characters were in the raw text and highlight word-level changes
+      const rawWords = rawText.split(/(\s+)/);
+      const outWords = sanitizedText.split(/(\s+)/);
+      const maxLen = Math.max(rawWords.length, outWords.length);
+      let html = '';
+
+      // First banner if raw text contained invisible chars
+      const invisRegex = /[\u200B\u200C\u200D\u2060\uFEFF\u00AD\u180E\u034F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069\uFE00-\uFE0F]/g;
+      const foundInvis = rawText.match(invisRegex);
+      if (foundInvis && foundInvis.length > 0) {
+        const tags = foundInvis.slice(0, 18).map(c => `<span class="hl-zw">[STRIPPED U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0')}]</span>`).join(' ');
+        html += `<div style="margin-bottom:0.65rem; padding:0.4rem 0.6rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:6px; font-size:0.74rem;"><strong>Stripped Invisible Watermarks (${foundInvis.length}):</strong> ${tags}</div>`;
+      }
+
+      const escape = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+      for (let i = 0; i < outWords.length; i++) {
+        const wOut = outWords[i];
+        const wRaw = rawWords[i] || '';
+        if (wOut === wRaw) {
+          html += escape(wOut);
+        } else if (wOut.toLowerCase() === wRaw.toLowerCase()) {
+          // Case jitter difference!
+          html += `<span class="hl-jitter" title="Case Jitter from: ${escape(wRaw)}">${escape(wOut)}</span>`;
+        } else if (/^[\s\-,.'"]+$/.test(wOut)) {
+          html += `<span class="hl-norm" title="Normalized Punctuation/Whitespace">${escape(wOut)}</span>`;
+        } else {
+          html += `<span class="hl-stylo" title="Stylometric/Lexical Edit">${escape(wOut)}</span>`;
+        }
+      }
+      return html;
+    }
+
+    function toggleXRay() {
+      xrayEnabled = !xrayEnabled;
+      const btn = document.getElementById('btn-xray');
+      const txtArea = document.getElementById('sanitized-output');
+      const xrayDiv = document.getElementById('xray-container');
+      if (xrayEnabled) {
+        btn.textContent = '🔬 X-Ray Diff: ON';
+        btn.style.borderColor = 'var(--cyan)';
+        btn.style.color = 'var(--cyan)';
+        txtArea.style.display = 'none';
+        xrayDiv.style.display = 'block';
+      } else {
+        btn.textContent = '🔬 X-Ray Diff: OFF';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        txtArea.style.display = 'block';
+        xrayDiv.style.display = 'none';
+      }
+      runPipeline();
+    }
+
+    // ============================================================================
+    // 7. MAIN UI PIPELINE RUNNER
+    // ============================================================================
+    function runPipeline() {
+      const rawText = document.getElementById('raw-input').value;
+      const seed = parseInt(document.getElementById('rng-seed').value, 10) || 42;
+
+      const { output, counts, auditEvents } = sanitizeAndHumanize(rawText, seed);
+      document.getElementById('sanitized-output').value = output;
+
+      if (xrayEnabled) {
+        document.getElementById('xray-container').innerHTML = buildXRayHtml(rawText, output);
+      }
+
+      // Update sidebar badge counters
+      Object.keys(counts).forEach(k => {
+        const badge = document.getElementById('c_' + k);
+        if (badge) badge.textContent = counts[k];
+      });
+
+      // Word counts
+      const inWords = (rawText.trim().match(/\S+/g) || []).length;
+      const outWords = (output.trim().match(/\S+/g) || []).length;
+      document.getElementById('input-stats').textContent = `${inWords} words • ${rawText.length} chars`;
+      document.getElementById('output-stats').textContent = `${outWords} words • ${output.length} chars`;
+
+      // Update Scoreboard
+      const rawMetrics = computeMetrics(rawText);
+      const outMetrics = computeMetrics(output);
+
+      const delta = outMetrics.humanScore - rawMetrics.humanScore;
+      document.getElementById('val-human-score').textContent = `${outMetrics.humanScore}%`;
+      document.getElementById('score-delta').textContent = (delta >= 0 ? '+' : '') + delta + '%';
+      document.getElementById('sub-human-score').textContent = `Raw Input: ${rawMetrics.humanScore}% Human`;
+      document.getElementById('bar-human').style.width = `${outMetrics.humanScore}%`;
+
+      document.getElementById('val-burstiness').textContent = outMetrics.cv.toFixed(2);
+      document.getElementById('sub-burstiness').textContent = `Raw CV: ${rawMetrics.cv.toFixed(2)}`;
+      document.getElementById('bar-burst').style.width = `${Math.min(100, Math.round(outMetrics.cv * 140))}%`;
+
+      document.getElementById('val-perplexity').textContent = `${outMetrics.perp}/100`;
+      document.getElementById('sub-perplexity').textContent = `${outMetrics.buzzCount} AI Buzzwords Left`;
+      document.getElementById('bar-perp').style.width = `${outMetrics.perp}%`;
+
+      const watermarkTotal = counts.zw + counts.bidi + counts.vs + counts.homo + counts.ws + counts.quotes + counts.dashes + counts.lig;
+      const styloTotal = counts.capdrop + counts.randcap + counts.dblcap + counts.apos + counts.typos + counts.oxford + counts.dblsp +
+                         counts.buzz + counts.cont + counts.burst + counts.hedge + counts.boldlead + counts.flatlist +
+                         counts.triad + counts.part + counts.num + counts.paren + counts.tail + counts.bpe;
+
+      document.getElementById('val-mutations').textContent = watermarkTotal + styloTotal;
+      document.getElementById('sub-mutations').textContent = `${watermarkTotal} Watermarks | ${styloTotal} Human Edits`;
+
+      // Update Forensic Audit Log
+      const logEl = document.getElementById('audit-log');
+      if (auditEvents.length === 0 && watermarkTotal + styloTotal === 0) {
+        logEl.innerHTML = `<span class="audit-tag">No watermarks or AI markers detected in current buffer.</span>`;
+      } else {
+        const summaryTags = [
+          `<span class="audit-tag" style="border-color:var(--red)">Zero-Width/Bidi/VS Stripped: ${counts.zw + counts.bidi + counts.vs}</span>`,
+          `<span class="audit-tag" style="border-color:var(--amber)">Homoglyphs/Quotes/Dashes: ${counts.homo + counts.quotes + counts.dashes + counts.ws}</span>`,
+          `<span class="audit-tag" style="border-color:var(--purple)">Buzzwords & Stylo Swaps: ${counts.buzz + counts.cont + counts.burst + counts.hedge}</span>`,
+          `<span class="audit-tag" style="border-color:var(--cyan)">Case Jitter (Cap→Low: ${counts.capdrop}, Low→Cap: ${counts.randcap})</span>`
+        ];
+        const detailTags = auditEvents.slice(0, 30).map(e => `<span class="audit-tag">${e}</span>`);
+        logEl.innerHTML = summaryTags.concat(detailTags).join('');
+      }
+      document.getElementById('audit-summary').textContent = `${watermarkTotal + styloTotal} Total Transformations Applied`;
+    }
+
+    // ============================================================================
+    // 8. MULTI-FORMAT FILE PARSER & FORENSIC CONTAINER SPOOFER (.docx, .pdf, img)
+    // ============================================================================
+    const dropzone = document.getElementById('file-dropzone');
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    });
+
+    function randomHex8(rand) {
+      let s = '';
+      const hex = '0123456789ABCDEF';
+      for (let i = 0; i < 8; i++) s += hex[Math.floor(rand() * 16)];
+      return s;
+    }
+
+    async function handleFiles(fileList) {
+      const queueEl = document.getElementById('file-queue');
+      queueEl.innerHTML = '';
+      uploadedFilesQueue = [];
+
+      for (const file of fileList) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const pill = document.createElement('div');
+        pill.className = 'file-pill';
+        pill.innerHTML = `<span>📄 ${file.name} (Processing...)</span>`;
+        queueEl.appendChild(pill);
+
+        try {
+          if (['txt', 'md', 'json', 'csv', 'html', 'xml', 'tex'].includes(ext)) {
+            const raw = await file.text();
+            document.getElementById('raw-input').value = raw;
+            runPipeline();
+            const sanitized = document.getElementById('sanitized-output').value;
+            const blob = new Blob([sanitized], { type: 'text/plain;charset=utf-8' });
+            const cleanName = file.name.replace(/(\.[^.]+)$/, '_clean$1');
+            pill.innerHTML = `<span>✅ ${file.name}</span> <button onclick="saveBlobIndex(${uploadedFilesQueue.length})">Download ${cleanName}</button>`;
+            uploadedFilesQueue.push({ name: cleanName, blob });
+          }
+          else if (ext === 'docx') {
+            const arrayBuf = await file.arrayBuffer();
+            const zip = await JSZip.loadAsync(arrayBuf);
+            const seed = parseInt(document.getElementById('rng-seed').value, 10) || 42;
+            const rand = createPRNG(seed);
+
+            // Extract and sanitize word/document.xml
+            let extractedPlain = [];
+            const docXmlFile = zip.file('word/document.xml');
+            if (docXmlFile) {
+              const xmlStr = await docXmlFile.async('string');
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+              const textNodes = xmlDoc.getElementsByTagName('w:t');
+
+              for (let i = 0; i < textNodes.length; i++) {
+                const orig = textNodes[i].textContent || '';
+                if (orig.trim()) {
+                  extractedPlain.push(orig);
+                  const { output } = sanitizeAndHumanize(orig, seed + i);
+                  textNodes[i].textContent = output;
+                }
+              }
+
+              // Forensic RSID Spoofing or Stripping
+              const spoofEnabled = document.getElementById('t_docx_spoof').checked;
+              const rsidPool = Array.from({ length: 38 }, () => randomHex8(rand));
+              const allElems = xmlDoc.getElementsByTagName('*');
+              for (let i = 0; i < allElems.length; i++) {
+                const el = allElems[i];
+                ['w:rsidR', 'w:rsidRPr', 'w:rsidP', 'w:rsidRDefault', 'w:rsidSect'].forEach(attr => {
+                  if (el.hasAttribute(attr)) {
+                    if (spoofEnabled) {
+                      el.setAttribute(attr, rsidPool[Math.floor(rand() * rsidPool.length)]);
+                    } else {
+                      el.removeAttribute(attr);
+                    }
+                  }
+                });
+              }
+
+              const serializer = new XMLSerializer();
+              zip.file('word/document.xml', serializer.serializeToString(xmlDoc));
+            }
+
+            // Wipe / Spoof Metadata in docProps/core.xml & docProps/app.xml
+            const wordCountEst = Math.max(120, extractedPlain.join(' ').split(/\s+/).length);
+            if (document.getElementById('t_docx_meta').checked) {
+              zip.remove('docProps/custom.xml');
+              const spoof = document.getElementById('t_docx_spoof').checked;
+              const editMinutes = spoof ? Math.max(12, Math.round(wordCountEst / 34) + Math.floor(rand() * 15)) : 1;
+              const revCount = spoof ? (14 + Math.floor(rand() * 24)) : 1;
+              const now = new Date();
+              const createdDate = new Date(now.getTime() - (editMinutes + 45) * 60000).toISOString();
+              const modDate = now.toISOString();
+
+              const coreXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title></dc:title>
+  <dc:creator></dc:creator>
+  <cp:lastModifiedBy></cp:lastModifiedBy>
+  <cp:revision>${revCount}</cp:revision>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${createdDate}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${modDate}</dcterms:modified>
+</cp:coreProperties>`;
+
+              const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>Microsoft Office Word</Application>
+  <TotalTime>${editMinutes}</TotalTime>
+  <Words>${wordCountEst}</Words>
+  <AppVersion>16.0000</AppVersion>
+</Properties>`;
+              zip.file('docProps/core.xml', coreXml);
+              zip.file('docProps/app.xml', appXml);
+            }
+
+            if (extractedPlain.length > 0) {
+              document.getElementById('raw-input').value = extractedPlain.join('\n\n');
+              runPipeline();
+            }
+
+            const outBlob = await zip.generateAsync({
+              type: 'blob',
+              mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            const cleanName = file.name.replace(/\.docx$/i, '_clean.docx');
+            pill.innerHTML = `<span>✅ ${file.name} (.docx Spoofed)</span> <button onclick="saveBlobIndex(${uploadedFilesQueue.length})">Download ${cleanName}</button>`;
+            uploadedFilesQueue.push({ name: cleanName, blob: outBlob });
+          }
+          else if (ext === 'pdf') {
+            const arrayBuf = await file.arrayBuffer();
+            // Extract text via pdf.js for live workspace inspection & sanitization
+            let fullText = [];
+            if (window.pdfjsLib) {
+              const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf.slice(0) }).promise;
+              for (let p = 1; p <= pdf.numPages; p++) {
+                const page = await pdf.getPage(p);
+                const content = await page.getTextContent();
+                const strings = content.items.map(item => item.str);
+                fullText.push(strings.join(' '));
+              }
+            }
+            if (fullText.length > 0) {
+              document.getElementById('raw-input').value = fullText.join('\n\n');
+              runPipeline();
+            }
+
+            // Generate a clean, metadata-scrubbed PDF with sanitized text via pdf-lib
+            const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+            const cleanPdf = await PDFDocument.create();
+            cleanPdf.setTitle('');
+            cleanPdf.setAuthor('');
+            cleanPdf.setSubject('');
+            cleanPdf.setKeywords([]);
+            cleanPdf.setProducer('Microsoft: Print To PDF');
+            cleanPdf.setCreator('Word');
+            cleanPdf.setCreationDate(new Date());
+            cleanPdf.setModificationDate(new Date());
+
+            const font = await cleanPdf.embedFont(StandardFonts.Helvetica);
+            const sanitizedText = (document.getElementById('sanitized-output').value || 'Sanitized Document')
+              .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '');
+
+            const lines = [];
+            const paragraphs = sanitizedText.split(/\n/);
+            for (const para of paragraphs) {
+              const words = para.split(/\s+/);
+              let currentLine = '';
+              for (const w of words) {
+                if ((currentLine + ' ' + w).length > 86) {
+                  lines.push(currentLine.trim());
+                  currentLine = w;
+                } else {
+                  currentLine += (currentLine ? ' ' : '') + w;
+                }
+              }
+              if (currentLine) lines.push(currentLine.trim());
+              lines.push('');
+            }
+
+            let page = cleanPdf.addPage([595.28, 841.89]); // A4
+            let y = 790;
+            for (const line of lines) {
+              if (y < 55) {
+                page = cleanPdf.addPage([595.28, 841.89]);
+                y = 790;
+              }
+              if (line) {
+                page.drawText(line, { x: 50, y, size: 10.5, font, color: rgb(0.08, 0.08, 0.08) });
+              }
+              y -= 15;
+            }
+
+            const pdfBytes = await cleanPdf.save();
+            const outBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const cleanName = file.name.replace(/\.pdf$/i, '_clean.pdf');
+            pill.innerHTML = `<span>✅ ${file.name} (PDF Rebuilt)</span> <button onclick="saveBlobIndex(${uploadedFilesQueue.length})">Download ${cleanName}</button>`;
+            uploadedFilesQueue.push({ name: cleanName, blob: outBlob });
+          }
+          else if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+            // Re-encode via Canvas to wipe EXIF, XMP, C2PA, and PNG tEXt/iTXt chunks
+            const imgUrl = URL.createObjectURL(file);
+            const img = new Image();
+            await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgUrl; });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            // Subtle 1-pixel LSB entropy touch on bottom-right corner
+            const imgData = ctx.getImageData(0, 0, 1, 1);
+            imgData.data[0] = imgData.data[0] ^ 1;
+            ctx.putImageData(imgData, 0, 0);
+
+            const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+            const outBlob = await new Promise(res => canvas.toBlob(res, mime, 0.96));
+            URL.revokeObjectURL(imgUrl);
+            const cleanName = file.name.replace(/(\.[^.]+)$/, '_clean$1');
+            pill.innerHTML = `<span>✅ ${file.name} (EXIF/C2PA Stripped)</span> <button onclick="saveBlobIndex(${uploadedFilesQueue.length})">Download ${cleanName}</button>`;
+            uploadedFilesQueue.push({ name: cleanName, blob: outBlob });
+          }
+        } catch (err) {
+          pill.innerHTML = `<span style="color:var(--red)">❌ Error processing ${file.name}: ${err.message}</span>`;
+        }
+      }
+    }
+
+    function saveBlobIndex(idx) {
+      const item = uploadedFilesQueue[idx];
+      if (!item) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(item.blob);
+      a.download = item.name;
+      a.click();
+    }
+
+    // ============================================================================
+    // 9. EXPORT, SAMPLE LOADER & WATERMARK INJECTOR
+    // ============================================================================
+    function copyOutput() {
+      const out = document.getElementById('sanitized-output').value;
+      navigator.clipboard.writeText(out);
+      const btn = event.target;
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = orig, 1200);
+    }
+
+    function downloadOutput(ext) {
+      const out = document.getElementById('sanitized-output').value;
+      const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sanitized_output${ext}`;
+      a.click();
+    }
+
+    function injectTestWatermarks() {
+      const el = document.getElementById('raw-input');
+      const cur = el.value || 'Artificial intelligence systems frequently embed invisible markers.';
+      // Inject zero-width spaces, soft hyphens, Cyrillic homoglyphs ('а', 'е', 'о'), curly quotes, and em-dashes
+      el.value = '\uFEFF' + cur
+        .replace(/\b([a-zA-Z]{4,})/g, '$1\u200B\u200C')
+        .replace(/a/g, (m, i) => i % 7 === 0 ? '\u0430' : m)
+        .replace(/ - /g, ' — ') + '\u2060\u00AD\uFE0F';
+      runPipeline();
+    }
+
+    function loadSampleAIText() {
+      const sample = `\uFEFFIn the ever-evolving realm of modern software engineering, artificial intelligence\u200B plays a crucial role in facilitating\u200C seamless workflows—and it is important to note that developers must delve into the intricacies of system architecture [1]. Moreover, by leveraging comprehensive optimization strategies, teams can foster a robust, multifaceted, and meticulous development environment\u2060.
+
+- **Performance Optimization:** Utilizing low-level hardware features underscores the importance of deterministic execution, which means latency does not spike under heavy loads.
+- **Scalability & Reliability:** Furthermore, navigating the complexities of distributed systems requires a holistic approach\u00AD, fast memory access, and clean code paths.
+
+Ultimately, this demonstrates how a paradigm shift in tooling—combined with a rich tapestry of open-source utilities like \`linux-cachyos\` and https://github.com/example/repo—serves as a testament to modern engineering.`;
+      document.getElementById('raw-input').value = sample;
+      runPipeline();
+    }
+
+    // Initialize with AI Sample on load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSampleAIText();
+    });
+  </script>
+
+<section id="privacy-suite" aria-label="Document privacy cleaner">
+ <div class="ps-card">
+  <h2>DOCUMENT PRIVACY &amp; CLEANUP</h2>
+  <p>Client-side cleanup tools from DocScrub: remove invisible Unicode marks, normalize typography, protect important terms, and strip supported file metadata. This module does not rewrite prose to imitate a person or fabricate editing history.</p>
+  <div class="ps-grid" style="margin-top:.8rem">
+   <div><h3>Hidden characters</h3>
+    <label><input type="checkbox" id="ps-zeroWidth" checked> Zero-width / invisible characters</label>
+    <label><input type="checkbox" id="ps-bidiControl" checked> Bidirectional / control codes</label>
+    <label><input type="checkbox" id="ps-variationTags" checked> Variation selectors / tags</label>
+    <label><input type="checkbox" id="ps-homoglyph" checked> Mixed-script confusables</label>
+    <label><input type="checkbox" id="ps-homoglyphNFKC"> ASCII-safe NFKC pass</label>
+   </div>
+   <div><h3>Typography</h3>
+    <label><input type="checkbox" id="ps-whitespace" checked> Normalize exotic whitespace</label>
+    <label><input type="checkbox" id="ps-smartQuotes" checked> Straighten smart quotes</label>
+    <label><input type="checkbox" id="ps-dashes" checked> Normalize em/en dashes</label>
+    <select id="ps-dashReplacement"><option value=" - ">Replace dashes with spaced hyphen</option><option value=", ">Replace dashes with comma</option><option value="-">Replace dashes with hyphen</option></select>
+    <label><input type="checkbox" id="ps-ellipsisLigature" checked> Expand ellipses / ligatures</label>
+    <label><input type="checkbox" id="ps-stripFormatting"> Strip Markdown / HTML formatting</label>
+   </div>
+   <div><h3>Term Lock &amp; file metadata</h3>
+    <label><input type="checkbox" id="ps-protectUrls" checked> Protect URLs</label>
+    <label><input type="checkbox" id="ps-protectEmails" checked> Protect email addresses</label>
+    <label><input type="checkbox" id="ps-protectCode" checked> Protect inline code</label>
+    <label><input type="checkbox" id="ps-protectCitations" checked> Protect citations</label>
+    <label><input type="checkbox" id="ps-protectMath" checked> Protect math formulas</label>
+    <label><input type="checkbox" id="ps-docxMetadata" checked> Remove DOCX metadata</label>
+    <label><input type="checkbox" id="ps-docxRsid" checked> Remove DOCX revision IDs</label>
+    <label><input type="checkbox" id="ps-pdfMeta" checked> Remove PDF metadata</label>
+    <label><input type="checkbox" id="ps-imageMeta" checked> Remove image metadata (re-encode)</label>
+    <input id="ps-keywords" type="text" placeholder="Optional protected terms, comma-separated">
+   </div>
+  </div>
+ </div>
+ <div class="ps-card">
+  <h3>Text cleanup workspace</h3>
+  <div class="ps-grid">
+   <div><label for="ps-input">Input text</label><textarea id="ps-input" placeholder="Paste text here…"></textarea></div>
+   <div><label for="ps-output">Cleaned output</label><textarea id="ps-output" readonly placeholder="Cleaned text appears here…"></textarea></div>
+  </div>
+  <div class="ps-stats">
+   <div class="ps-stat"><b id="ps-hidden">0</b> hidden chars removed</div>
+   <div class="ps-stat"><b id="ps-conf">0</b> confusables fixed</div>
+   <div class="ps-stat"><b id="ps-typo">0</b> typography changes</div>
+   <div class="ps-stat"><b id="ps-risk">Clear</b> residual hidden chars</div>
+  </div>
+  <button class="primary" id="ps-copy">Copy cleaned text</button><button id="ps-download">Download TXT</button>
+  <button id="ps-xray-toggle">Toggle X-ray diff</button>
+  <div id="ps-xray" class="ps-xray" hidden></div>
+ </div>
+ <div class="ps-card">
+  <h3>Batch file cleanup</h3>
+  <p>Supported: TXT, Markdown, JSON, CSV, HTML, XML, TEX, DOCX, PDF, PNG, JPG, JPEG and WebP. Processing happens in this browser.</p>
+  <input id="ps-files" type="file" multiple accept=".txt,.md,.json,.csv,.html,.htm,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp">
+  <div id="ps-file-list"></div>
+  <button id="ps-zip">Download completed files as ZIP</button>
+  <small id="ps-message" role="status"></small>
+ </div>
+</section>
+
+<script>
+// sanitizer.js — Text cleanup: hidden/invisible character stripping, watermark
+// removal, and typography normalization. Each transform is individually
+// toggleable. Also computes Term Lock protected spans and an X-ray diff.
+//
+// Scope note: this file intentionally contains ONLY privacy/cleanup transforms
+// (removing hidden data and normalizing typography). It deliberately does not
+// inject errors, fabricate "human" imperfection, or try to defeat detectors.
+
+'use strict';
+
+// ---- Character sets / maps -------------------------------------------------
+
+const ZERO_WIDTH = new Set([
+  0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x00ad, 0x180e,
+]);
+
+// Bidirectional controls + ASCII control remnants (tab/newline/CR kept).
+function isBidiOrControl(cp) {
+  if (cp === 0x200e || cp === 0x200f) return true;
+  if (cp >= 0x202a && cp <= 0x202e) return true;
+  if (cp >= 0x2066 && cp <= 0x2069) return true;
+  if (cp === 0x09 || cp === 0x0a || cp === 0x0d) return false;
+  if (cp <= 0x08 || cp === 0x0b || cp === 0x0c) return true;
+  if (cp >= 0x0e && cp <= 0x1f) return true;
+  if (cp === 0x7f) return true;
+  return false;
+}
+
+// Variation selectors + Unicode tag block (steganographic payload carriers).
+function isVariationOrTag(cp) {
+  if (cp >= 0xfe00 && cp <= 0xfe0f) return true;
+  if (cp >= 0xe0100 && cp <= 0xe01ef) return true;
+  if (cp >= 0xe0000 && cp <= 0xe007f) return true;
+  return false;
+}
+
+// Exotic whitespace -> ASCII space.
+const EXOTIC_SPACE = new Set([0x00a0, 0x202f, 0x2007, 0x3000]);
+function isExoticSpace(cp) {
+  if (EXOTIC_SPACE.has(cp)) return true;
+  if (cp >= 0x2000 && cp <= 0x200a) return true; // en/em/thin/hair spaces
+  return false;
+}
+
+// Smart quotes / primes -> straight ASCII.
+const SMART_QUOTES = {
+  0x201c: '"', 0x201d: '"', 0x201e: '"', 0x00ab: '"', 0x00bb: '"', 0x2033: '"',
+  0x2018: "'", 0x2019: "'", 0x201a: "'", 0x2039: "'", 0x203a: "'", 0x2032: "'",
+};
+
+// Typographic ligatures -> ASCII.
+const LIGATURES = {
+  0xfb00: 'ff', 0xfb01: 'fi', 0xfb02: 'fl', 0xfb03: 'ffi', 0xfb04: 'ffl', 0xfb05: 'st', 0xfb06: 'st',
+};
+
+// Common confusables (Cyrillic/Greek/math lookalikes) -> ASCII Latin.
+const CONFUSABLES = {
+  0x0430: 'a', 0x0435: 'e', 0x043e: 'o', 0x0440: 'p', 0x0441: 'c', 0x0443: 'y', 0x0445: 'x',
+  0x0410: 'A', 0x0412: 'B', 0x0415: 'E', 0x041a: 'K', 0x041c: 'M', 0x041d: 'H', 0x041e: 'O',
+  0x0420: 'P', 0x0421: 'C', 0x0422: 'T', 0x0425: 'X', 0x0456: 'i', 0x0458: 'j', 0x0405: 'S',
+  0x0391: 'A', 0x0392: 'B', 0x0395: 'E', 0x0396: 'Z', 0x0397: 'H', 0x0399: 'I', 0x039a: 'K',
+  0x039c: 'M', 0x039d: 'N', 0x039f: 'O', 0x03a1: 'P', 0x03a4: 'T', 0x03a5: 'Y', 0x03a7: 'X',
+  0x0455: 's', 0x0501: 'd', 0x04bb: 'h', 0x03bf: 'o', 0x03b1: 'a', 0x0192: 'f', 0x2212: '-', 0x2215: '/', 0x2044: '/',
+};
+
+// Only convert a lookalike when its word is mixed with Latin letters or is made
+// entirely of lookalikes; genuine Cyrillic/Greek words are left alone.
+// shortcut: a real word spelled only with lookalike letters (rare) still converts; add a language toggle if that bites.
+const WORD_CH = /[\p{L}\p{M}]/u;
+function confusableWordOk(text, i) {
+  let s = i, e = i;
+  while (s > 0 && WORD_CH.test(text[s - 1])) s--;
+  while (e < text.length && WORD_CH.test(text[e])) e++;
+  const w = text.slice(s, e);
+  if (/[A-Za-z]/.test(w)) return true;
+  for (const c of w) if (CONFUSABLES[c.codePointAt(0)] == null) return false;
+  return true;
+}
+function nfkcAscii(ch) {
+  const n = ch.normalize('NFKC');
+  return n !== ch && /^[\x20-\x7e]+$/.test(n) ? n : null;
+}
+
+// ---- Term Lock (protected spans) ------------------------------------------
+
+const PROTECT_PATTERNS = {
+  urls: /\bhttps?:\/\/[^\s<>"')\]]+/gi,
+  emails: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+  code: /`[^`]*`/g,
+  citations: /\[\d+(?:\s*[,–-]\s*\d+)*\]|\([A-Z][A-Za-z.'-]+(?:\s+(?:et al\.?|and|&)\s+[A-Z][A-Za-z.'-]+)*,\s*\d{4}[a-z]?\)/g,
+  math: /\$\$[\s\S]*?\$\$|\$[^$\n]+\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g,
+};
+
+// Returns a boolean array of length text.length; true = locked (don't touch).
+function computeProtectedMask(text, protectOpts) {
+  const mask = new Array(text.length).fill(false);
+  const mark = (re) => {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      for (let i = m.index; i < m.index + m[0].length; i++) mask[i] = true;
+      if (m.index === re.lastIndex) re.lastIndex++; // guard zero-length
+    }
+  };
+  for (const key of ['urls', 'emails', 'code', 'citations', 'math']) {
+    if (protectOpts[key]) mark(PROTECT_PATTERNS[key]);
+  }
+  if (protectOpts.keywords && protectOpts.keywordList) {
+    for (const raw of protectOpts.keywordList) {
+      const kw = raw.trim();
+      if (!kw) continue;
+      const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      mark(new RegExp(esc, 'g'));
+    }
+  }
+  return mask;
+}
+
+// ---- Formatting stripper (Markdown + HTML -> plain text) -------------------
+
+const ENTITIES = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'" };
+function stripFormatting(text) {
+  let s = text;
+  s = s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');                        // ANSI colour codes
+  s = s.replace(/<!--[\s\S]*?-->/g, '');                               // HTML comments
+  s = s.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');        // CSS/JS blocks
+  s = s.replace(/<br\s*\/?>|<\/(p|div|h[1-6]|li|tr)>/gi, '\n');        // block ends -> newline
+  s = s.replace(/\\textcolor\{[^{}]*\}\{([^{}]*)\}/g, '$1');           // LaTeX colour
+  s = s.replace(/\\color\{[^{}]*\}/g, '');
+  s = s.replace(/\\(?:textbf|textit|emph|underline|texttt|textsc|textrm|textsf)\{([^{}]*)\}/g, '$1');
+  s = s.replace(/^[ \t]*={3,}[ \t]*$/gm, '');                          // setext heading underline
+  s = s.replace(/```[^\n]*\n([\s\S]*?)```/g, '$1');      // fenced code -> inner
+  s = s.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, '$1');
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');          // image -> alt
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');           // link -> text
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');                // headings
+  s = s.replace(/^\s{0,3}>\s?/gm, '');                     // blockquotes
+  s = s.replace(/^[ \t]*\|?[-: \t|]+\|[-: \t|]*$/gm, '');    // table separator rows
+  s = s.replace(/^\s{0,3}([-*+]|\d+[.)])\s+/gm, '');       // list markers
+  s = s.replace(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/gm, ''); // horizontal rules
+  s = s.replace(/(\*\*|__)(.*?)\1/g, '$2');                // bold
+  s = s.replace(/\*(?=\S)(.+?)(?<=\S)\*/g, '$1');            // italic *x* (not "2 * 3")
+  s = s.replace(/(?<![A-Za-z0-9])_(?=\S)(.+?)(?<=\S)_(?![A-Za-z0-9])/g, '$1'); // _x_ (not snake_case)
+  s = s.replace(/~~(.*?)~~/g, '$1');                       // strikethrough
+  s = s.replace(/`([^`]+)`/g, '$1');                       // inline code
+  s = s.replace(/[ \t]*\|[ \t]*/g, ' ');                   // table cell pipes (keep newlines)
+  s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');                // HTML tags (and their inline styles)
+  s = s.replace(/&(nbsp|amp|lt|gt|quot|apos|#39);/g, (m, e) => ENTITIES[e]);
+  s = s.replace(/&#(\d+);/g, (m, n) => String.fromCodePoint(+n));
+  s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  return s;
+}
+
+// ---- Main sanitize pass ----------------------------------------------------
+// opts: { transforms: {id:bool}, dashReplacement, homoglyphNFKC, protect:{...} }
+// Returns { output, segments, counts } where segments drive the X-ray diff.
+
+function sanitizeText(text, opts) {
+  const t = opts.transforms || {};
+  if (t.stripFormatting) text = stripFormatting(text);
+  const mask = computeProtectedMask(text, opts.protect || {});
+  const dashRepl = opts.dashReplacement != null ? opts.dashReplacement : ' - ';
+
+  const segments = []; // {text, type|null}
+  const counts = { hidden: 0, typography: 0, confusable: 0 };
+  let out = '';
+
+  const pushUnchanged = (s) => {
+    if (!s) return;
+    out += s;
+    const last = segments[segments.length - 1];
+    if (last && last.type === null) last.text += s;
+    else segments.push({ text: s, type: null });
+  };
+  const pushChanged = (orig, repl, type) => {
+    out += repl;
+    segments.push({ text: repl, orig, type });
+  };
+
+  let i = 0;
+  while (i < text.length) {
+    const cp = text.codePointAt(i);
+    const charLen = cp > 0xffff ? 2 : 1;
+    const ch = text.slice(i, i + charLen);
+
+    if (mask[i]) { pushUnchanged(ch); i += charLen; continue; }
+
+    let nf;
+    let repl = null;   // replacement string
+    let type = null;   // diff category
+
+    if (t.zeroWidth && ZERO_WIDTH.has(cp)) { repl = ''; type = 'hidden'; }
+    else if (t.bidiControl && isBidiOrControl(cp)) { repl = ''; type = 'hidden'; }
+    else if (t.variationTags && isVariationOrTag(cp)) { repl = ''; type = 'hidden'; }
+    else if (t.homoglyph && CONFUSABLES[cp] != null && confusableWordOk(text, i)) { repl = CONFUSABLES[cp]; type = 'confusable'; }
+    else if (t.whitespace && isExoticSpace(cp)) { repl = ' '; type = 'typography'; }
+    else if (t.smartQuotes && SMART_QUOTES[cp] != null) { repl = SMART_QUOTES[cp]; type = 'typography'; }
+    else if (t.dashes && (cp === 0x2014 || cp === 0x2013)) {
+      type = 'typography';
+      if (cp === 0x2013 && /\d/.test(text[i - 1] || '') && /\d/.test(text[i + 1] || '')) repl = '-'; // 10–12
+      else {
+        repl = dashRepl;
+        // Don't double up spaces already around the dash.
+        if (repl[0] === ' ' && out.endsWith(' ')) repl = repl.slice(1);
+        else if (repl === ', ' && out.endsWith(' ')) {
+          const last = segments[segments.length - 1];
+          if (last && last.type === null) { last.text = last.text.slice(0, -1); out = out.slice(0, -1); }
+        }
+        if (repl.endsWith(' ') && text[i + 1] === ' ') repl = repl.slice(0, -1);
+      }
+    }
+    else if (t.ellipsisLigature && cp === 0x2026) { repl = '...'; type = 'typography'; }
+    else if (t.ellipsisLigature && LIGATURES[cp] != null) { repl = LIGATURES[cp]; type = 'typography'; }
+    else if (t.homoglyph && opts.homoglyphNFKC && (nf = nfkcAscii(ch)) !== null) { repl = nf; type = 'confusable'; }
+
+    if (repl === null) { pushUnchanged(ch); }
+    else {
+      pushChanged(ch, repl, type);
+      if (type === 'hidden') counts.hidden++;
+      else if (type === 'confusable') counts.confusable++;
+      else counts.typography++;
+    }
+    i += charLen;
+  }
+
+  return { output: out, segments, counts };
+}
+
+// Count hidden/watermark characters present in text (for the risk scoreboard).
+function countHidden(text) {
+  let n = 0;
+  for (let i = 0; i < text.length; ) {
+    const cp = text.codePointAt(i);
+    const len = cp > 0xffff ? 2 : 1;
+    if (ZERO_WIDTH.has(cp) || isBidiOrControl(cp) || isVariationOrTag(cp)) n++;
+    i += len;
+  }
+  return n;
+}
+
+window.Sanitizer = { sanitizeText, countHidden, computeProtectedMask, stripFormatting };
+
+// file-processor.js — Read supported files, extract their text, and REMOVE
+// forensic metadata from containers. Removal only: this file clears identifying
+// data and leaves it blank/absent. It never fabricates replacement authoring
+// history, revision counts, timing, or session IDs.
+
+'use strict';
+
+const TEXT_EXT = new Set(['txt', 'md', 'json', 'csv', 'html', 'htm', 'xml', 'tex']);
+const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'webp']);
+
+function extOf(name) {
+  const m = /\.([A-Za-z0-9]+)$/.exec(name || '');
+  return m ? m[1].toLowerCase() : '';
+}
+function kindOf(name) {
+  const e = extOf(name);
+  if (e === 'docx') return 'docx';
+  if (e === 'pdf') return 'pdf';
+  if (IMAGE_EXT.has(e)) return 'image';
+  if (TEXT_EXT.has(e)) return 'text';
+  return 'text'; // unknown -> treat as text
+}
+
+function readAsText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsText(file);
+  });
+}
+function readAsArrayBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function xmlUnescape(s) {
+  return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+// ---- DOCX ------------------------------------------------------------------
+
+async function docxToText(arrayBuffer) {
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const docFile = zip.file('word/document.xml');
+  if (!docFile) return '';
+  const xml = await docFile.async('string');
+  // Paragraphs -> newlines, tabs -> \t, strip remaining tags.
+  const withBreaks = xml
+    .replace(/<w:p[ >]/g, '\n<w:p ').replace(/<\/w:p>/g, '\n')
+    .replace(/<w:tab\b[^>]*\/?>/g, '\t')
+    .replace(/<w:br\b[^>]*\/?>/g, '\n');
+  const text = withBreaks.replace(/<[^>]+>/g, '');
+  return xmlUnescape(text).replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Strip rsid revision-tracking attributes from document/settings XML.
+function stripRsidAttrs(xml) {
+  return xml
+    .replace(/\s+w:rsid(?:R|RPr|P|RDefault|Tr|Del|Sect)="[0-9A-Fa-f]*"/g, '')
+    .replace(/<w:rsids>[\s\S]*?<\/w:rsids>/g, '')
+    .replace(/<w:rsids\b[^>]*\/>/g, '');
+}
+
+function xmlEscape(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Run textFn over the visible text of every <w:t> node (hidden chars live there).
+function cleanDocXmlText(xml, textFn) {
+  return xml.replace(/(<w:t(?:\s[^>]*)?>)([^<]*)(<\/w:t>)/g, (m, open, body, close) => {
+    const out = textFn(xmlUnescape(body));
+    if (/^\s|\s$/.test(out) && !open.includes('xml:space')) open = '<w:t xml:space="preserve">';
+    return open + xmlEscape(out) + close;
+  });
+}
+
+// Drop run styling (fonts, colour, bold, highlight) and paragraph styling
+// (headings, alignment, list numbering). Section layout (w:sectPr) is kept.
+// shortcut: regex, not an XML parser; tracked-change property blocks (w:pPrChange) are dropped with the rest.
+function stripDocxFormatting(xml) {
+  return xml
+    .replace(/<w:rPr>[\s\S]*?<\/w:rPr>|<w:rPr\/>/g, '')
+    .replace(/<w:pPr>([\s\S]*?)<\/w:pPr>/g, (m, body) => {
+      const sect = /<w:sectPr[\s\S]*<\/w:sectPr>|<w:sectPr[^>]*\/>/.exec(body);
+      return sect ? `<w:pPr>${sect[0]}</w:pPr>` : '';
+    });
+}
+
+// Clear identifying fields in docProps/core.xml (leave tags, blank the text).
+function wipeCoreXml(xml) {
+  const blank = [
+    'dc:creator', 'cp:lastModifiedBy', 'dc:title', 'dc:subject', 'dc:description',
+    'cp:keywords', 'cp:category', 'cp:contentStatus', 'cp:revision', 'cp:lastPrinted',
+    'dcterms:created', 'dcterms:modified',
+  ];
+  let out = xml;
+  for (const tag of blank) {
+    const t = tag.replace(':', '\\:');
+    out = out.replace(new RegExp(`(<${t}[^>]*>)[\\s\\S]*?(</${t}>)`, 'g'), '$1$2');
+  }
+  return out;
+}
+
+function wipeAppXml(xml) {
+  let out = xml;
+  for (const tag of ['Company', 'Manager', 'TotalTime', 'Template', 'HyperlinkBase']) {
+    out = out.replace(new RegExp(`(<${tag}[^>]*>)[\\s\\S]*?(</${tag}>)`, 'g'), '$1$2');
+  }
+  return out;
+}
+
+// opts: { metadata, rsid, stripFormatting: bool, textFn?: (string) => string }
+async function cleanDocx(arrayBuffer, opts) {
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const changes = [];
+
+  if (opts.metadata) {
+    if (zip.file('docProps/core.xml')) {
+      const x = await zip.file('docProps/core.xml').async('string');
+      zip.file('docProps/core.xml', wipeCoreXml(x));
+      changes.push('core.xml');
+    }
+    if (zip.file('docProps/app.xml')) {
+      const x = await zip.file('docProps/app.xml').async('string');
+      zip.file('docProps/app.xml', wipeAppXml(x));
+      changes.push('app.xml');
+    }
+    if (zip.file('docProps/custom.xml')) {
+      zip.remove('docProps/custom.xml');
+      // Remove dangling references so Word doesn't flag a repair.
+      const ct = zip.file('[Content_Types].xml');
+      if (ct) {
+        const x = await ct.async('string');
+        zip.file('[Content_Types].xml',
+          x.replace(/<Override[^>]*custom\.xml[^>]*\/>/g, ''));
+      }
+      const rels = zip.file('_rels/.rels');
+      if (rels) {
+        const x = await rels.async('string');
+        zip.file('_rels/.rels',
+          x.replace(/<Relationship[^>]*custom\.xml[^>]*\/>/g, ''));
+      }
+      changes.push('custom.xml (removed)');
+    }
+  }
+
+  if (opts.rsid) {
+    for (const path of ['word/document.xml', 'word/settings.xml']) {
+      const f = zip.file(path);
+      if (f) {
+        const x = await f.async('string');
+        zip.file(path, stripRsidAttrs(x));
+        changes.push(path + ' rsid');
+      }
+    }
+  }
+
+  if (opts.textFn) {
+    for (const f of zip.file(/^word\/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$/)) {
+      let x = cleanDocXmlText(await f.async('string'), opts.textFn);
+      if (opts.stripFormatting) x = stripDocxFormatting(x);
+      zip.file(f.name, x);
+    }
+    changes.push('text cleaned');
+  }
+
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  });
+  return { blob, changes };
+}
+
+// ---- PDF -------------------------------------------------------------------
+
+async function pdfToText(arrayBuffer) {
+  const pdfjs = window.pdfjsLib;
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const doc = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+  let text = '';
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const content = await page.getTextContent();
+    text += content.items.map((it) => it.str).join(' ') + '\n\n';
+  }
+  return text.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function cleanPdf(arrayBuffer) {
+  const { PDFDocument } = window.PDFLib;
+  const pdf = await PDFDocument.load(arrayBuffer, { updateMetadata: false });
+  const changes = [];
+  try {
+    pdf.setTitle(''); pdf.setAuthor(''); pdf.setSubject(''); pdf.setKeywords([]);
+    pdf.setProducer(''); pdf.setCreator('');
+    changes.push('Info dictionary');
+  } catch (e) { /* some fields may be absent */ }
+  // Remove the XMP metadata stream from the catalog if present.
+  try {
+    const catalog = pdf.catalog;
+    for (const key of ['Metadata', 'PieceInfo']) {
+      const name = window.PDFLib.PDFName.of(key);
+      if (catalog.has(name)) { catalog.delete(name); changes.push(key); }
+    }
+  } catch (e) { /* ignore */ }
+  const bytes = await pdf.save({ useObjectStreams: false });
+  return { blob: new Blob([bytes], { type: 'application/pdf' }), changes };
+}
+
+// ---- Images (re-encode via canvas drops EXIF/XMP/IPTC/C2PA/text chunks) ----
+
+function cleanImage(arrayBuffer, mime, ext) {
+  return new Promise((res, rej) => {
+    const blob = new Blob([arrayBuffer], { type: mime || `image/${ext}` });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const outType = ext === 'png' ? 'image/png'
+        : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      canvas.toBlob(
+        (b) => b ? res({ blob: b, changes: ['EXIF/XMP/IPTC/C2PA stripped (re-encoded)'] })
+          : rej(new Error('encode failed')),
+        outType, outType === 'image/jpeg' ? 0.95 : undefined);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('image decode failed')); };
+    img.src = url;
+  });
+}
+
+window.FileProcessor = {
+  extOf, kindOf, readAsText, readAsArrayBuffer,
+  docxToText, pdfToText, cleanDocx, cleanPdf, cleanImage, cleanDocXmlText, stripDocxFormatting,
+};
+
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById('ps-'+id);
+ const transformIds=['zeroWidth','bidiControl','variationTags','homoglyph','whitespace','smartQuotes','dashes','ellipsisLigature'];
+ let segments=[], files=[];
+ function options(){
+  const transforms={}; transformIds.forEach(id=>transforms[id]=$(id).checked);
+  transforms.stripFormatting=$('stripFormatting').checked;
+  return {transforms,homoglyphNFKC:$('homoglyphNFKC').checked,dashReplacement:$('dashReplacement').value,
+   protect:{urls:$('protectUrls').checked,emails:$('protectEmails').checked,code:$('protectCode').checked,
+   citations:$('protectCitations').checked,math:$('protectMath').checked,keywordList:$('keywords').value.split(',').map(x=>x.trim()).filter(Boolean)}};
+ }
+ function process(){
+  const raw=$('input').value, r=Sanitizer.sanitizeText(raw,options()); segments=r.segments; $('output').value=r.output;
+  $('hidden').textContent=r.counts.hidden; $('conf').textContent=r.counts.confusable; $('typo').textContent=r.counts.typography;
+  const left=Sanitizer.countHidden(r.output); $('risk').textContent=left===0?'Clear':left+' left';
+  if(!$('xray').hidden) renderXray();
+ }
+ function renderXray(){
+  const box=$('xray'); box.replaceChildren();
+  segments.forEach(seg=>{
+   if(seg.type===null) box.appendChild(document.createTextNode(seg.text));
+   else {const s=document.createElement('span');s.className=seg.type==='hidden'?'x-hidden':seg.type==='confusable'?'x-conf':'x-typo';
+    s.textContent=seg.type==='hidden'?'[U+'+seg.orig.codePointAt(0).toString(16).toUpperCase()+']':(seg.text||seg.orig);
+    s.title=seg.orig+' → '+(seg.text||'∅');box.appendChild(s);}
+  });
+ }
+ $('input').addEventListener('input',process);
+ document.querySelectorAll('#privacy-suite input[type=checkbox],#privacy-suite select,#ps-keywords').forEach(el=>el.addEventListener('change',process));
+ $('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('output').value);$('message').textContent='Copied.'}catch(e){$('message').textContent='Clipboard unavailable; select and copy the output.'}};
+ function save(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+ $('download').onclick=()=>save(new Blob([$('output').value],{type:'text/plain;charset=utf-8'}),'cleaned.txt');
+ $('xray-toggle').onclick=()=>{$('xray').hidden=!$('xray').hidden;if(!$('xray').hidden)renderXray()};
+ $('files').addEventListener('change',e=>handleFiles(Array.from(e.target.files||[])));
+ async function handleFiles(list){
+  for(const file of list){
+   const entry={name:file.name,status:'Processing…',blob:null,outName:file.name.replace(/(\.[^.]+)$/,'.clean$1')};files.push(entry);renderFiles();
+   try{
+    const kind=FileProcessor.kindOf(file.name),ext=FileProcessor.extOf(file.name),buf=await file.arrayBuffer(),opts=options();
+    if(kind==='text'){
+     const raw=new TextDecoder('utf-8',{ignoreBOM:true}).decode(buf),clean=Sanitizer.sanitizeText(raw,opts).output;
+     entry.blob=new Blob([clean],{type:file.type||'text/plain'});
+     if(list.length===1){$('input').value=raw;process();}
+    }else if(kind==='docx'){
+     const result=await FileProcessor.cleanDocx(buf,{metadata:$('docxMetadata').checked,rsid:$('docxRsid').checked,stripFormatting:opts.transforms.stripFormatting,textFn:t=>Sanitizer.sanitizeText(t,{...opts,transforms:{...opts.transforms,stripFormatting:false}}).output});
+     entry.blob=result.blob;
+    }else if(kind==='pdf'){
+     const result=$('pdfMeta').checked?await FileProcessor.cleanPdf(buf):{blob:new Blob([buf],{type:'application/pdf'})};entry.blob=result.blob;
+    }else if(kind==='image'){
+     const result=$('imageMeta').checked?await FileProcessor.cleanImage(buf,file.type,ext==='jpeg'?'jpg':ext):{blob:new Blob([buf],{type:file.type})};entry.blob=result.blob;
+    }
+    if(!entry.blob)throw new Error('Unsupported file type');
+    entry.status='Ready';
+   }catch(err){entry.status='Error: '+(err.message||err)}
+   renderFiles();
+  }
+ }
+ function renderFiles(){
+  const box=$('file-list');box.replaceChildren();
+  files.forEach((f,i)=>{const row=document.createElement('div');row.className='ps-file';const label=document.createElement('span');label.textContent=f.name+' — '+f.status;row.appendChild(label);
+   if(f.blob){const b=document.createElement('button');b.textContent='Download';b.onclick=()=>save(f.blob,f.outName);row.appendChild(b)}
+   box.appendChild(row);
+  });
+ }
+ $('zip').onclick=async()=>{
+  const ready=files.filter(f=>f.blob);if(!ready.length){$('message').textContent='No completed files to ZIP.';return}
+  if(!window.JSZip){$('message').textContent='ZIP library unavailable.';return}
+  const zip=new JSZip();ready.forEach(f=>zip.file(f.outName,f.blob));
+  save(await zip.generateAsync({type:'blob'}),'cleaned-files.zip');$('message').textContent=ready.length+' file(s) added to ZIP.';
+ };
+ process();
+})();
+</script>
 </body>
 </html>
