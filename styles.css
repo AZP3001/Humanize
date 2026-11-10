@@ -94,5 +94,41 @@ textarea{border:none;background:transparent;color:var(--txt);resize:vertical;min
 .xray-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:middle}
 .pill-hidden{background:var(--hidden)}.pill-typo{background:var(--typo)}.pill-conf{background:var(--conf)}
 
+/* info icon on each setting row */
+.tgl{position:relative}
+.info{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);
+  background:var(--panel2);color:var(--dim);font-size:12px;font-style:italic;font-weight:700;
+  cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin-top:1px;line-height:1}
+.info:hover{color:var(--accent);border-color:var(--accent)}
+
+/* hover tooltip */
+.tooltip{position:fixed;z-index:60;max-width:300px;background:#0a0e13;border:1px solid var(--accent);
+  color:var(--txt);padding:9px 12px;border-radius:8px;font-size:13px;line-height:1.45;
+  box-shadow:0 8px 24px #000a;pointer-events:auto}
+.tooltip::after{content:"";position:absolute;bottom:-7px;left:var(--arrow,20px);width:12px;height:12px;
+  background:#0a0e13;border-right:1px solid var(--accent);border-bottom:1px solid var(--accent);transform:rotate(45deg)}
+.tooltip .tip-more{display:inline-flex;align-items:center;gap:5px;margin-top:6px;color:var(--accent);
+  cursor:pointer;font-weight:600;font-size:12.5px}
+.tooltip .tip-i{width:16px;height:16px;border-radius:50%;border:1px solid var(--accent);
+  display:inline-flex;align-items:center;justify-content:center;font-style:italic;font-size:11px}
+
+/* details modal */
+.modal{position:fixed;inset:0;z-index:80;background:#000b;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;
+  max-width:720px;width:100%;position:relative;max-height:88vh;overflow:auto}
+.modal-close{position:absolute;top:14px;right:14px;background:var(--panel2);border:1px solid var(--line);
+  color:var(--txt);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:14px}
+.modal-box h3{margin:0 40px 10px 0;font-size:19px;color:var(--accent)}
+.modal-desc{color:var(--txt);font-size:15px;margin:0 0 18px}
+.modal-demo{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}
+.demo-col{display:flex;flex-direction:column;gap:6px}
+.demo-col label{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px}
+.demo-note{text-transform:none;color:var(--accent);letter-spacing:0}
+.modal-demo textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;min-height:120px;
+  padding:10px;font-size:13.5px;color:var(--txt)}
+.demo-arrow{color:var(--accent);font-size:22px;text-align:center}
+.modal-static{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;
+  white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--dim)}
+
 @media(max-width:1000px){.layout{grid-template-columns:1fr}.editors{grid-template-columns:1fr}
   .scoreboard{grid-template-columns:repeat(2,1fr)}}

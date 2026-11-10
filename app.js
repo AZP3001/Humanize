@@ -18,6 +18,7 @@ let fileEntries = []; // {file, kind, name, blob, outName, status}
 function readOptions() {
   const transforms = {};
   for (const id of TRANSFORM_IDS) transforms[id] = $(id).checked;
+  transforms.stripFormatting = $('stripFormatting').checked;
   const protect = {};
   for (const [id, key] of Object.entries(PROTECT_MAP)) protect[key] = $(id).checked;
   protect.keywordList = $('keywordInput').value.split(',').map((s) => s.trim()).filter(Boolean);
@@ -106,7 +107,7 @@ const PRESETS = {
     off: ['homoglyph', 'homoglyphNFKC', 'whitespace', 'smartQuotes', 'dashes', 'ellipsisLigature', 'docxRsid'],
     dash: ' - ' },
 };
-const ALL_TOGGLES = [...TRANSFORM_IDS, 'homoglyphNFKC', 'docxMetadata', 'docxRsid', 'pdfMeta', 'imageMeta'];
+const ALL_TOGGLES = [...TRANSFORM_IDS, 'homoglyphNFKC', 'stripFormatting', 'docxMetadata', 'docxRsid', 'pdfMeta', 'imageMeta'];
 
 function applyPreset(name) {
   const p = PRESETS[name];
@@ -122,6 +123,7 @@ const CATEGORY = {
   protect: ['protectUrls', 'protectEmails', 'protectCode', 'protectCitations', 'protectMath', 'protectKeywords'],
   strip: ['zeroWidth', 'bidiControl', 'variationTags', 'homoglyph'],
   typo: ['whitespace', 'smartQuotes', 'dashes', 'ellipsisLigature'],
+  format: ['stripFormatting'],
   meta: ['docxMetadata', 'docxRsid', 'pdfMeta', 'imageMeta'],
 };
 
@@ -271,6 +273,189 @@ function scheduleReprocess() {
   }, 400);
 }
 
+// ---- Per-setting help: hover tooltip + interactive details modal -----------
+
+const T_ALL = { zeroWidth: true, bidiControl: true, variationTags: true, homoglyph: true,
+  whitespace: true, smartQuotes: true, dashes: true, ellipsisLigature: true };
+
+const SETTINGS_INFO = {
+  protectUrls: { title: 'Term Lock — URLs', kind: 'protect',
+    short: 'Leaves URLs untouched by every other rule.',
+    long: 'Web addresses often contain characters (dashes, case, tildes) that other rules would change and break the link. With this on, anything matching an http(s) URL is locked and passes through unchanged.',
+    ex: 'Dash fix off inside links: visit https://my-site.com/a—b now.' },
+  protectEmails: { title: 'Term Lock — Emails', kind: 'protect',
+    short: 'Leaves email addresses unchanged.',
+    long: 'Email addresses are locked so normalization never alters the local part or domain.',
+    ex: 'Write to First.Last@Example.com — it stays exactly as typed.' },
+  protectCode: { title: 'Term Lock — Inline code', kind: 'protect',
+    short: 'Protects text inside `backticks`.',
+    long: 'Anything between backticks is treated as code and locked, so quotes, dashes and spacing inside it are preserved verbatim.',
+    ex: 'Run `git commit —amend` and keep “quotes” inside code intact.' },
+  protectCitations: { title: 'Term Lock — Citations', kind: 'protect',
+    short: 'Protects [1] and (Author, Year) citations.',
+    long: 'Bracketed numeric refs like [1] and author-year refs like (Smith, 2025) are locked so punctuation and spacing inside them are never changed.',
+    ex: 'As shown [1] and by others (Smith, 2025), results held.' },
+  protectMath: { title: 'Term Lock — Math', kind: 'protect',
+    short: 'Protects $…$ and \\(…\\) formulas.',
+    long: 'LaTeX-style math spans are locked, so operators and symbols inside formulas are left alone.',
+    ex: 'The identity $a—b = c$ must not have its dash changed.' },
+  protectKeywords: { title: 'Term Lock — Custom keywords', kind: 'protect',
+    short: 'Protects words you list in the box below.',
+    long: 'Type comma-separated terms in the field under this toggle (names, product terms, acronyms). Each exact occurrence is locked from every change.',
+    ex: 'Enter your own keywords in the box — those exact words stay untouched.' },
+
+  zeroWidth: { title: 'Zero-width & invisible characters', kind: 'text',
+    short: 'Deletes invisible zero-width marks and BOM.',
+    long: 'Characters like the zero-width space (U+200B), joiners, word joiner, BOM and soft hyphen are invisible but can carry hidden watermarks or tracking. This removes them entirely.',
+    ex: 'He​llo⁠ wor‌ld﻿' },
+  bidiControl: { title: 'Bidirectional & control codes', kind: 'text',
+    short: 'Strips text-direction overrides and control codes.',
+    long: 'Right-to-left/left-to-right override characters can secretly reorder text, and stray ASCII control codes can hide data. These are removed (normal tabs and newlines are kept).',
+    ex: 'price: 100‮ usd ‬end' },
+  variationTags: { title: 'Variation selectors & tag payloads', kind: 'text',
+    short: 'Removes emoji variation selectors and hidden tag glyphs.',
+    long: 'Variation selectors (U+FE00–FE0F) and the Unicode Tag block (U+E0000–E007F) are invisible and can smuggle an entire hidden message after a normal character. All are stripped.',
+    ex: 'secret󠁴󠁡󠁧 message' },
+  homoglyph: { title: 'Homoglyph / confusable normalizer', kind: 'text',
+    short: 'Turns look-alike letters into plain ASCII.',
+    long: 'Cyrillic and Greek letters that look identical to Latin ones (е, а, о, р, с) can be used to disguise text. This maps common confusables back to normal ASCII letters.',
+    ex: 'Соме ѕустем text' },
+  homoglyphNFKC: { title: 'NFKC compatibility pass', kind: 'nfkc',
+    short: 'Extra Unicode normalization, ASCII-safe only.',
+    long: 'Applies Unicode NFKC normalization per character but keeps the result only when it becomes plain ASCII — catching fullwidth and other decorative variants without touching real non-Latin text.',
+    ex: 'Ｈｅｌｌｏ Ｗｏｒｌｄ' },
+  whitespace: { title: 'Exotic whitespace normalizer', kind: 'text',
+    short: 'Converts fancy spaces to a normal space.',
+    long: 'Non-breaking, narrow, figure, thin, hair and ideographic spaces all look like a space but are different characters. They are converted to the plain ASCII space (0x20).',
+    ex: 'a b c　d' },
+  smartQuotes: { title: 'Smart quote & apostrophe flattener', kind: 'text',
+    short: 'Curly quotes and primes become straight.',
+    long: 'Typographic “curly” quotes, guillemets and prime marks are converted to straight ASCII " and \'.',
+    ex: '“Hello,” it’s a 6′ «test»' },
+  dashes: { title: 'Em / en-dash normalizer', kind: 'text',
+    short: 'Replaces — and – with your chosen form.',
+    long: 'Em-dashes (—) and en-dashes (–) are replaced with the alternative you pick in the dropdown (spaced hyphen, comma, plain hyphen, or blank).',
+    ex: 'This — right here — and pages 10–12.' },
+  dashReplacement: { title: 'Dash replacement choice', kind: 'text', runAs: 'dashes',
+    short: 'Pick what — and – turn into.',
+    long: 'Controls the replacement used by the em/en-dash rule: a spaced hyphen " - ", a comma ", ", a plain hyphen "-", or blank. Change the dropdown, then re-open this to see it applied.',
+    ex: 'This — right here — stays readable.' },
+  ellipsisLigature: { title: 'Ellipsis & ligature splitter', kind: 'text',
+    short: 'Expands … to ... and splits ﬁ ﬂ ligatures.',
+    long: 'The single ellipsis character … becomes three dots, and typographic ligatures (ﬁ, ﬂ, ﬀ, ﬃ, ﬄ) are decomposed into normal ASCII letters.',
+    ex: 'Wait… the ﬁnal ﬂourish was ﬀine.' },
+  stripFormatting: { title: 'Strip all formatting', kind: 'text',
+    short: 'Flattens Markdown & HTML to plain text.',
+    long: 'Removes headings, bold/italic, links (keeping the visible text), lists, blockquotes, code fences, tables and raw HTML tags — leaving only the readable words.',
+    ex: '# Title\n\n**Bold** and *italic* with a [link](https://x.com).\n\n- first item\n- second item\n\n<b>raw html</b> too.' },
+
+  docxMetadata: { title: '.docx metadata wipe', kind: 'file',
+    short: 'Clears author/company/title props in a Word file.',
+    long: 'On a .docx upload, this blanks the identifying fields in docProps/core.xml and app.xml (author, last-modified-by, title, company, etc.) and deletes custom.xml. It removes data only — it never writes a fake author or history in its place.',
+    static: 'Before:  dc:creator = "Jane Doe", Company = "Acme"\nAfter:   dc:creator = "",         Company = ""\n\n(Upload a .docx to apply — this rule does not act on typed text.)' },
+  docxRsid: { title: '.docx revision (rsid) strip', kind: 'file',
+    short: 'Removes Word’s per-edit revision fingerprints.',
+    long: 'Word stamps runs of text with rsid identifiers that can reveal editing sessions. This strips w:rsidR / w:rsidRPr / w:rsidP / w:rsidRDefault attributes and the rsid table. Removal only; nothing fabricated.',
+    static: 'Before:  <w:p w:rsidR="00A1B2C3" w:rsidP="00FF00FF">\nAfter:   <w:p>\n\n(Upload a .docx to apply.)' },
+  pdfMeta: { title: '.pdf metadata & XMP scrub', kind: 'file',
+    short: 'Clears PDF document info and XMP metadata.',
+    long: 'On a PDF upload, clears the Info dictionary (Title, Author, Producer, Creator, Keywords) and removes the XMP metadata stream via pdf-lib. The page content is kept as-is.',
+    static: 'Before:  Author = "Jane Doe", Producer = "Word 2021"\nAfter:   Author = "",         Producer = ""\n\n(Upload a .pdf to apply.)' },
+  imageMeta: { title: 'Image EXIF / XMP / C2PA strip', kind: 'file',
+    short: 'Removes camera, GPS and provenance data from images.',
+    long: 'Re-encodes PNG/JPG/WebP through a canvas, which drops EXIF (including GPS), XMP, IPTC, C2PA and PNG text chunks. Pixels are preserved (JPEG re-encodes at 95% quality).',
+    static: 'Before:  GPS = 40.69°,-74.04°, Camera = iPhone 15\nAfter:   (no metadata — pixels only)\n\n(Upload an image to apply.)' },
+};
+
+function runExample(id, text) {
+  const info = SETTINGS_INFO[id];
+  const base = { homoglyphNFKC: false, dashReplacement: $('dashReplacement').value,
+    protect: { urls: false, emails: false, code: false, citations: false, math: false } };
+  if (info.kind === 'nfkc') return SAN.sanitizeText(text, { ...base, transforms: { homoglyph: true }, homoglyphNFKC: true }).output;
+  if (info.kind === 'protect') {
+    const key = { protectUrls: 'urls', protectEmails: 'emails', protectCode: 'code',
+      protectCitations: 'citations', protectMath: 'math', protectKeywords: 'keywords' }[id];
+    const protect = { ...base.protect, [key]: true };
+    if (key === 'keywords') { protect.keywords = true; protect.keywordList = $('keywordInput').value.split(',').map((s) => s.trim()).filter(Boolean); }
+    return SAN.sanitizeText(text, { ...base, transforms: { ...T_ALL }, protect }).output;
+  }
+  const tid = info.runAs || id;
+  return SAN.sanitizeText(text, { ...base, transforms: { [tid]: true } }).output;
+}
+
+let tipTimer = null;
+function showTip(row) {
+  const id = row.dataset.info;
+  const info = SETTINGS_INFO[id];
+  if (!info) return;
+  const tip = $('tooltip');
+  tip.innerHTML = '';
+  const txt = document.createElement('div');
+  txt.textContent = info.short;
+  tip.appendChild(txt);
+  const more = document.createElement('span');
+  more.className = 'tip-more';
+  more.innerHTML = '<span class="tip-i">i</span> what it does';
+  more.onclick = () => openModal(id);
+  tip.appendChild(more);
+  tip.classList.remove('hidden');
+  const r = row.getBoundingClientRect();
+  let top = r.top - tip.offsetHeight - 10;
+  if (top < 8) top = r.bottom + 10;
+  tip.style.left = Math.max(8, Math.min(r.left, window.innerWidth - tip.offsetWidth - 8)) + 'px';
+  tip.style.top = top + 'px';
+  tip.style.setProperty('--arrow', Math.min(60, r.width / 2) + 'px');
+}
+function hideTipSoon() { tipTimer = setTimeout(() => $('tooltip').classList.add('hidden'), 180); }
+function cancelHide() { clearTimeout(tipTimer); }
+
+function openModal(id) {
+  const info = SETTINGS_INFO[id];
+  if (!info) return;
+  $('modalTitle').textContent = info.title;
+  $('modalDesc').textContent = info.long;
+  if (info.kind === 'file') {
+    $('modalDemo').classList.add('hidden');
+    const s = $('modalStatic');
+    s.classList.remove('hidden');
+    s.textContent = info.static;
+  } else {
+    $('modalStatic').classList.add('hidden');
+    $('modalDemo').classList.remove('hidden');
+    $('demoInput').value = info.ex;
+    const run = () => { $('demoOutput').value = runExample(id, $('demoInput').value); };
+    $('demoInput').oninput = run;
+    run();
+  }
+  $('modal').classList.remove('hidden');
+  $('tooltip').classList.add('hidden');
+}
+function closeModal() { $('modal').classList.add('hidden'); }
+
+function initHelp() {
+  document.querySelectorAll('.tgl').forEach((row) => {
+    let id = row.dataset.info;
+    if (!id) {
+      const cb = row.querySelector('input[type=checkbox]');
+      if (cb && SETTINGS_INFO[cb.id]) { id = cb.id; row.dataset.info = id; }
+    }
+    if (!id || !SETTINGS_INFO[id]) return;
+    const b = document.createElement('button');
+    b.className = 'info'; b.type = 'button'; b.textContent = 'i';
+    b.title = 'What does this do?';
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openModal(id); };
+    row.appendChild(b);
+    row.addEventListener('mouseenter', () => { cancelHide(); showTip(row); });
+    row.addEventListener('mouseleave', hideTipSoon);
+  });
+  const tip = $('tooltip');
+  tip.addEventListener('mouseenter', cancelHide);
+  tip.addEventListener('mouseleave', hideTipSoon);
+  $('modalClose').addEventListener('click', closeModal);
+  $('modal').addEventListener('click', (e) => { if (e.target === $('modal')) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+}
+
 // ---- Init ------------------------------------------------------------------
 
 function init() {
@@ -302,6 +487,7 @@ function init() {
   $('downloadBtn').addEventListener('click', downloadOutput);
   $('zipBtn').addEventListener('click', batchZip);
 
+  initHelp();
   processLive();
 }
 

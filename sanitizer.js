@@ -98,12 +98,36 @@ function computeProtectedMask(text, protectOpts) {
   return mask;
 }
 
+// ---- Formatting stripper (Markdown + HTML -> plain text) -------------------
+
+function stripFormatting(text) {
+  let s = text;
+  s = s.replace(/```[^\n]*\n([\s\S]*?)```/g, '$1');      // fenced code -> inner
+  s = s.replace(/~~~[^\n]*\n([\s\S]*?)~~~/g, '$1');
+  s = s.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1');          // image -> alt
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');           // link -> text
+  s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '');                // headings
+  s = s.replace(/^\s{0,3}>\s?/gm, '');                     // blockquotes
+  s = s.replace(/^\s*\|?[-:\s|]+\|[-:\s|]*$/gm, '');       // table separator rows
+  s = s.replace(/^\s{0,3}([-*+]|\d+[.)])\s+/gm, '');       // list markers
+  s = s.replace(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/gm, ''); // horizontal rules
+  s = s.replace(/(\*\*|__)(.*?)\1/g, '$2');                // bold
+  s = s.replace(/(\*|_)(.*?)\1/g, '$2');                   // italic
+  s = s.replace(/~~(.*?)~~/g, '$1');                       // strikethrough
+  s = s.replace(/`([^`]+)`/g, '$1');                       // inline code
+  s = s.replace(/\s*\|\s*/g, ' ');                         // table cell pipes
+  s = s.replace(/<\/?[a-zA-Z][^>]*>/g, '');                // HTML tags
+  s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  return s;
+}
+
 // ---- Main sanitize pass ----------------------------------------------------
 // opts: { transforms: {id:bool}, dashReplacement, homoglyphNFKC, protect:{...} }
 // Returns { output, segments, counts } where segments drive the X-ray diff.
 
 function sanitizeText(text, opts) {
   const t = opts.transforms || {};
+  if (t.stripFormatting) text = stripFormatting(text);
   const mask = computeProtectedMask(text, opts.protect || {});
   const dashRepl = opts.dashReplacement != null ? opts.dashReplacement : ' - ';
 
@@ -177,4 +201,4 @@ function countHidden(text) {
   return n;
 }
 
-window.Sanitizer = { sanitizeText, countHidden, computeProtectedMask };
+window.Sanitizer = { sanitizeText, countHidden, computeProtectedMask, stripFormatting };
