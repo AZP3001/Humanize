@@ -80,6 +80,18 @@ function cleanDocXmlText(xml, textFn) {
   });
 }
 
+// Drop run styling (fonts, colour, bold, highlight) and paragraph styling
+// (headings, alignment, list numbering). Section layout (w:sectPr) is kept.
+// shortcut: regex, not an XML parser; tracked-change property blocks (w:pPrChange) are dropped with the rest.
+function stripDocxFormatting(xml) {
+  return xml
+    .replace(/<w:rPr>[\s\S]*?<\/w:rPr>|<w:rPr\/>/g, '')
+    .replace(/<w:pPr>([\s\S]*?)<\/w:pPr>/g, (m, body) => {
+      const sect = /<w:sectPr[\s\S]*<\/w:sectPr>|<w:sectPr[^>]*\/>/.exec(body);
+      return sect ? `<w:pPr>${sect[0]}</w:pPr>` : '';
+    });
+}
+
 // Clear identifying fields in docProps/core.xml (leave tags, blank the text).
 function wipeCoreXml(xml) {
   const blank = [
@@ -103,7 +115,7 @@ function wipeAppXml(xml) {
   return out;
 }
 
-// opts: { metadata: bool, rsid: bool, textFn?: (string) => string }
+// opts: { metadata, rsid, stripFormatting: bool, textFn?: (string) => string }
 async function cleanDocx(arrayBuffer, opts) {
   const zip = await JSZip.loadAsync(arrayBuffer);
   const changes = [];
@@ -151,7 +163,9 @@ async function cleanDocx(arrayBuffer, opts) {
 
   if (opts.textFn) {
     for (const f of zip.file(/^word\/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$/)) {
-      zip.file(f.name, cleanDocXmlText(await f.async('string'), opts.textFn));
+      let x = cleanDocXmlText(await f.async('string'), opts.textFn);
+      if (opts.stripFormatting) x = stripDocxFormatting(x);
+      zip.file(f.name, x);
     }
     changes.push('text cleaned');
   }
@@ -227,5 +241,5 @@ function cleanImage(arrayBuffer, mime, ext) {
 
 window.FileProcessor = {
   extOf, kindOf, readAsText, readAsArrayBuffer,
-  docxToText, pdfToText, cleanDocx, cleanPdf, cleanImage, cleanDocXmlText,
+  docxToText, pdfToText, cleanDocx, cleanPdf, cleanImage, cleanDocXmlText, stripDocxFormatting,
 };
