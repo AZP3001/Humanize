@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocScrub — Clean & Anonymize</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">◈</span> DocScrub<span class="sub">hidden-data &amp; metadata cleaner</span></div>
+  <div class="presets">
+    <label>Preset</label>
+    <select id="presetSelect">
+      <option value="safeClean">Safe Clean</option>
+      <option value="watermarkOnly">Watermark Strip Only</option>
+      <option value="fullNormalize">Full Normalize</option>
+      <option value="minimal">Minimal</option>
+    </select>
+  </div>
+</header>
+
+<div class="scope-note">
+  Cleanup &amp; anonymization only — strips hidden/watermark characters, normalizes typography, and
+  <strong>removes</strong> document metadata. It does not fabricate editing history or alter your words beyond the toggles below.
+</div>
+
+<main class="layout">
+  <!-- Controls -->
+  <aside class="controls">
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Term Lock <span class="hint">protect from changes</span></h2>
+        <div class="master"><button data-master="protect" data-on="1">All</button><button data-master="protect" data-on="0">None</button></div>
+      </div>
+      <label class="tgl"><input type="checkbox" id="protectUrls" checked><span>URLs</span></label>
+      <label class="tgl"><input type="checkbox" id="protectEmails" checked><span>Email addresses</span></label>
+      <label class="tgl"><input type="checkbox" id="protectCode" checked><span>Inline code <code>`...`</code></span></label>
+      <label class="tgl"><input type="checkbox" id="protectCitations" checked><span>Citations <code>[1]</code> <code>(Smith, 2025)</code></span></label>
+      <label class="tgl"><input type="checkbox" id="protectMath" checked><span>Math formulas <code>$...$</code></span></label>
+      <label class="tgl"><input type="checkbox" id="protectKeywords"><span>Custom keywords</span></label>
+      <input type="text" id="keywordInput" class="kw" placeholder="comma,separated,terms">
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Hidden &amp; Watermark Stripper</h2>
+        <div class="master"><button data-master="strip" data-on="1">All</button><button data-master="strip" data-on="0">None</button></div>
+      </div>
+      <label class="tgl"><input type="checkbox" id="zeroWidth" checked data-cat="strip"><span>Zero-width &amp; invisible chars <em>ZWSP, ZWNJ, BOM, soft-hyphen…</em></span></label>
+      <label class="tgl"><input type="checkbox" id="bidiControl" checked data-cat="strip"><span>Bidirectional &amp; control codes <em>RLO/LRO, control remnants</em></span></label>
+      <label class="tgl"><input type="checkbox" id="variationTags" checked data-cat="strip"><span>Variation selectors &amp; tag payloads <em>FE00–FE0F, E0000–E01EF</em></span></label>
+      <label class="tgl"><input type="checkbox" id="homoglyph" checked data-cat="strip"><span>Homoglyph / confusable normalizer <em>Cyrillic/Greek → ASCII</em></span></label>
+      <label class="tgl sub"><input type="checkbox" id="homoglyphNFKC"><span>+ NFKC pass (ASCII-safe only)</span></label>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Typography Normalizer</h2>
+        <div class="master"><button data-master="typo" data-on="1">All</button><button data-master="typo" data-on="0">None</button></div>
+      </div>
+      <label class="tgl"><input type="checkbox" id="whitespace" checked data-cat="typo"><span>Exotic whitespace → space <em>NBSP, narrow/figure/ideographic</em></span></label>
+      <label class="tgl"><input type="checkbox" id="smartQuotes" checked data-cat="typo"><span>Smart quotes &amp; primes → straight</span></label>
+      <label class="tgl"><input type="checkbox" id="dashes" checked data-cat="typo"><span>Em/en-dash normalize</span></label>
+      <label class="tgl sub"><span class="opt">Replace with</span>
+        <select id="dashReplacement">
+          <option value=" - ">spaced hyphen</option>
+          <option value=", ">comma</option>
+          <option value="-">hyphen</option>
+          <option value="  ">(blank)</option>
+        </select>
+      </label>
+      <label class="tgl"><input type="checkbox" id="ellipsisLigature" checked data-cat="typo"><span>Ellipsis → ... &amp; split ligatures <em>ﬁ ﬂ ﬀ</em></span></label>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>File Metadata Removal <span class="hint">docx · pdf · images</span></h2>
+        <div class="master"><button data-master="meta" data-on="1">All</button><button data-master="meta" data-on="0">None</button></div>
+      </div>
+      <label class="tgl"><input type="checkbox" id="docxMetadata" checked data-cat="meta"><span>.docx metadata wipe <em>core/app/custom props</em></span></label>
+      <label class="tgl"><input type="checkbox" id="docxRsid" checked data-cat="meta"><span>.docx revision (rsid) strip</span></label>
+      <label class="tgl"><input type="checkbox" id="pdfMeta" checked data-cat="meta"><span>.pdf metadata &amp; XMP scrub</span></label>
+      <label class="tgl"><input type="checkbox" id="imageMeta" checked data-cat="meta"><span>Image EXIF/XMP/C2PA strip <em>re-encode</em></span></label>
+    </section>
+  </aside>
+
+  <!-- Work area -->
+  <section class="work">
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple
+        accept=".txt,.md,.json,.csv,.html,.xml,.tex,.docx,.pdf,.png,.jpg,.jpeg,.webp">
+      <span>Drop files here or <button id="browseBtn" type="button">browse</button> — batch supported</span>
+    </div>
+    <ul id="fileList" class="file-list"></ul>
+
+    <div class="editors">
+      <div class="editor">
+        <div class="ed-head">Raw Input <span id="inStats" class="stats"></span></div>
+        <textarea id="input" spellcheck="false" placeholder="Paste or type text here…"></textarea>
+      </div>
+      <div class="editor">
+        <div class="ed-head">Processed Output
+          <label class="xray-toggle"><input type="checkbox" id="xrayToggle"> X-ray diff</label>
+          <span id="outStats" class="stats"></span>
+        </div>
+        <textarea id="output" spellcheck="false" readonly placeholder="Cleaned text appears here…"></textarea>
+        <div id="xray" class="xray hidden"></div>
+      </div>
+    </div>
+
+    <div class="scoreboard">
+      <div class="gauge"><span class="g-val" id="scHidden">0</span><span class="g-lbl">Hidden chars removed</span></div>
+      <div class="gauge"><span class="g-val" id="scConf">0</span><span class="g-lbl">Confusables fixed</span></div>
+      <div class="gauge"><span class="g-val" id="scTypo">0</span><span class="g-lbl">Typography normalized</span></div>
+      <div class="gauge"><span class="g-val" id="scRisk">—</span><span class="g-lbl">Residual watermark risk</span></div>
+    </div>
+
+    <div class="export">
+      <button id="copyBtn">Copy output</button>
+      <button id="downloadBtn">Download</button>
+      <button id="zipBtn">Batch .zip</button>
+      <span id="exportMsg" class="export-msg"></span>
+    </div>
+  </section>
+</main>
+
+<div class="xray-legend hidden" id="xrayLegend">
+  <span><i class="pill-hidden"></i>stripped hidden char</span>
+  <span><i class="pill-typo"></i>typography</span>
+  <span><i class="pill-conf"></i>confusable→ASCII</span>
+</div>
+
+<script src="sanitizer.js"></script>
+<script src="file-processor.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
